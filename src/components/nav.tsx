@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export function Nav() {
   const { theme } = useTheme();
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const router = useRouter();
 
   const handleSignOut = async () => {
@@ -19,10 +19,14 @@ export function Nav() {
   };
 
   const avatarUrl = user?.user_metadata?.avatar_url;
-  const fullName =
-    user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email;
-  const initials = fullName
-    ? fullName
+  const displayName = profile?.username
+    ? `@${profile.username}`
+    : user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
+      user?.email;
+  const initials = displayName
+    ? displayName
+        .replace(/^@/, "")
         .split(" ")
         .map((n: string) => n[0])
         .join("")
@@ -92,6 +96,11 @@ export function Nav() {
                 >
                   {initials}
                 </div>
+              )}
+              {profile?.username && (
+                <span className="hidden sm:inline font-mono text-[12px] text-[var(--text-muted)]">
+                  @{profile.username}
+                </span>
               )}
               <button
                 onClick={handleSignOut}

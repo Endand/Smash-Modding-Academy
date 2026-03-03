@@ -30,7 +30,31 @@ export async function updateSession(request: NextRequest) {
   );
 
   // Refresh the session — important for Server Components
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const pathname = request.nextUrl.pathname;
+
+  // If user is logged in and not on setup-username or auth routes, check for profile
+  if (
+    user &&
+    pathname !== "/setup-username" &&
+    !pathname.startsWith("/auth/") &&
+    pathname !== "/login"
+  ) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/setup-username";
+      return NextResponse.redirect(url);
+    }
+  }
 
   return supabaseResponse;
 }
