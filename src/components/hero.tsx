@@ -19,8 +19,8 @@ export function Hero() {
           style={{ fontSize: "clamp(1rem, 1.5vw, 1.125rem)" }}
         >
           A free, structured curriculum for learning Super Smash Bros. Ultimate
-          modding — from installing your first skin to building custom fighters
-          from scratch.
+          character modding — from setting up your tools to building custom
+          fighters from scratch.
         </p>
         <Link
           href="/curriculum"

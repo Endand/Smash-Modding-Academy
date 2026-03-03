@@ -1,6 +1,6 @@
 "use client";
 
-import { Wrench, Paintbrush, Layers, Music, Swords } from "lucide-react";
+import { Wrench, Swords } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 
 const courses = [
@@ -9,24 +9,6 @@ const courses = [
     title: "Foundations",
     description:
       "Getting started with modding tools, file systems, backups, and the modding ecosystem.",
-  },
-  {
-    icon: Paintbrush,
-    title: "Textures & Skins",
-    description:
-      "UV mapping, texture editing, importing custom skins, and material workflows.",
-  },
-  {
-    icon: Layers,
-    title: "Stage Building",
-    description:
-      "Custom stages from concept to playable — collision, blast zones, and platform layouts.",
-  },
-  {
-    icon: Music,
-    title: "Audio Modding",
-    description:
-      "Music replacement, sound effects, announcer packs, and audio format conversion.",
   },
   {
     icon: Swords,
@@ -51,11 +33,10 @@ export function CurriculumPreview() {
             What you&apos;ll learn
           </h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {courses.map((course, i) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {courses.map((course) => {
             const Icon = course.icon;
-            // Asymmetric: first card spans 2 cols on lg
-            const spanClass = i === 0 ? "lg:col-span-2" : "";
+            const spanClass = "";
             return (
               <div
                 key={course.title}
