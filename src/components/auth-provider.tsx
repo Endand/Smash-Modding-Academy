@@ -92,10 +92,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Client-side redirect: logged in, no profile, not on setup page
   useEffect(() => {
-    if (!loading && user && !profile && pathname !== "/setup-username") {
-      router.replace("/setup-username");
+    if (
+      !loading &&
+      user &&
+      !profile &&
+      pathname !== "/setup-username" &&
+      !pathname.startsWith("/auth/") &&
+      pathname !== "/login"
+    ) {
+      console.log("[auth] no profile, redirecting to /setup-username");
+      window.location.href = "/setup-username";
     }
-  }, [loading, user, profile, pathname, router]);
+  }, [loading, user, profile, pathname]);
 
   return (
     <AuthContext.Provider value={{ user, profile, loading }}>
