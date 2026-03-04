@@ -57,12 +57,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const supabase = createClient();
 
     // Get initial session
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user }, error }) => {
+      console.log("[auth] getUser result:", { user: user?.id, error });
       setUser(user);
       if (user) {
         const prof = await fetchProfile(user.id);
+        console.log("[auth] profile result:", prof);
         setProfile(prof);
       }
+      setLoading(false);
+      console.log("[auth] loading set to false");
+    }).catch((err) => {
+      console.error("[auth] getUser exception:", err);
       setLoading(false);
     });
 
