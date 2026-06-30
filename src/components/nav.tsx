@@ -12,6 +12,15 @@ export function Nav() {
   const { user, profile, loading } = useAuth();
   const router = useRouter();
 
+  const clearAuthCookies = () => {
+    document.cookie.split(";").forEach((c) => {
+      const name = c.split("=")[0].trim();
+      if (name.startsWith("sb-")) {
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+      }
+    });
+  };
+
   const handleSignOut = async () => {
     const supabase = createClient();
     try {
@@ -22,6 +31,7 @@ export function Nav() {
     } catch (err) {
       console.error("[auth] signOut error/timeout:", err);
     }
+    clearAuthCookies();
     window.location.href = "/";
   };
 
