@@ -28,15 +28,20 @@ export function UsernameSetup() {
     const validationError = validateUsername(value);
     if (validationError) { setError(validationError); return; }
     setChecking(true);
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("username", value.toLowerCase())
-      .maybeSingle();
-    if (data) setError("Username is already taken");
-    else setError(null);
-    setChecking(false);
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", value.toLowerCase())
+        .maybeSingle();
+      setError(data ? "Username is already taken" : null);
+    } catch (err) {
+      console.error("[username] uniqueness check failed:", err);
+      setError("Couldn't check availability. Try again.");
+    } finally {
+      setChecking(false);
+    }
   }, []);
 
   const handleBlur = () => { if (username.length > 0) checkUniqueness(username); };
@@ -56,24 +61,29 @@ export function UsernameSetup() {
     if (validationError) { setError(validationError); return; }
     setSubmitting(true);
     setError(null);
-    const supabase = createClient();
-    const { data: existing } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("username", username.toLowerCase())
-      .maybeSingle();
-    if (existing) { setError("Username is already taken"); setSubmitting(false); return; }
-    const { error: insertError } = await supabase.from("profiles").insert({
-      id: user!.id,
-      username: username.toLowerCase(),
-    });
-    if (insertError) {
-      if (insertError.code === "23505") setError("Username is already taken");
-      else setError("Something went wrong. Try again.");
+    try {
+      const supabase = createClient();
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", username.toLowerCase())
+        .maybeSingle();
+      if (existing) { setError("Username is already taken"); return; }
+      const { error: insertError } = await supabase.from("profiles").insert({
+        id: user!.id,
+        username: username.toLowerCase(),
+      });
+      if (insertError) {
+        setError(insertError.code === "23505" ? "Username is already taken" : "Something went wrong. Try again.");
+        return;
+      }
+      window.location.href = "/";
+    } catch (err) {
+      console.error("[username] submit failed:", err);
+      setError("Something went wrong. Try again.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-    window.location.href = "/";
   };
 
   return (

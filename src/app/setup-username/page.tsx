@@ -50,19 +50,20 @@ export default function SetupUsernamePage() {
     }
 
     setChecking(true);
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("username", value.toLowerCase())
-      .maybeSingle();
-
-    if (data) {
-      setError("Username is already taken");
-    } else {
-      setError(null);
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", value.toLowerCase())
+        .maybeSingle();
+      setError(data ? "Username is already taken" : null);
+    } catch (err) {
+      console.error("[username] uniqueness check failed:", err);
+      setError("Couldn't check availability. Try again.");
+    } finally {
+      setChecking(false);
     }
-    setChecking(false);
   }, []);
 
   const handleBlur = () => {
@@ -96,38 +97,43 @@ export default function SetupUsernamePage() {
     setSubmitting(true);
     setError(null);
 
-    const supabase = createClient();
+    try {
+      const supabase = createClient();
 
-    // Check uniqueness one more time
-    const { data: existing } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("username", username.toLowerCase())
-      .maybeSingle();
+      // Check uniqueness one more time
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", username.toLowerCase())
+        .maybeSingle();
 
-    if (existing) {
-      setError("Username is already taken");
-      setSubmitting(false);
-      return;
-    }
-
-    const { error: insertError } = await supabase.from("profiles").insert({
-      id: user!.id,
-      username: username.toLowerCase(),
-    });
-
-    if (insertError) {
-      if (insertError.code === "23505") {
+      if (existing) {
         setError("Username is already taken");
-      } else {
-        setError("Something went wrong. Try again.");
+        return;
       }
-      setSubmitting(false);
-      return;
-    }
 
-    // Force a full reload so the auth provider re-fetches the profile
-    window.location.href = "/";
+      const { error: insertError } = await supabase.from("profiles").insert({
+        id: user!.id,
+        username: username.toLowerCase(),
+      });
+
+      if (insertError) {
+        setError(
+          insertError.code === "23505"
+            ? "Username is already taken"
+            : "Something went wrong. Try again."
+        );
+        return;
+      }
+
+      // Force a full reload so the auth provider re-fetches the profile
+      window.location.href = "/";
+    } catch (err) {
+      console.error("[username] submit failed:", err);
+      setError("Something went wrong. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading || !user || profile) {
