@@ -53,8 +53,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = createClient();
 
+    // Safety net: never let the UI hang forever if Supabase is slow/unresponsive
+    const timeout = setTimeout(() => {
+      console.error("[auth] getUser timed out after 8s");
+      setLoading(false);
+    }, 8000);
+
     // Get initial session
     supabase.auth.getUser().then(async ({ data: { user }, error }) => {
+      clearTimeout(timeout);
       console.log("[auth] getUser result:", { user: user?.id, error });
       setUser(user);
       if (user) {
@@ -65,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       console.log("[auth] loading set to false");
     }).catch((err) => {
+      clearTimeout(timeout);
       console.error("[auth] getUser exception:", err);
       setLoading(false);
     });

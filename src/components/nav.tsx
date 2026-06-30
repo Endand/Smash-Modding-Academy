@@ -14,8 +14,15 @@ export function Nav() {
 
   const handleSignOut = async () => {
     const supabase = createClient();
-    await supabase.auth.signOut();
-    router.refresh();
+    try {
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000)),
+      ]);
+    } catch (err) {
+      console.error("[auth] signOut error/timeout:", err);
+    }
+    window.location.href = "/";
   };
 
   const avatarUrl = user?.user_metadata?.avatar_url;
