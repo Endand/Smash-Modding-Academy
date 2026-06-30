@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, withTimeout } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
 export type Profile = {
@@ -34,11 +34,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchProfile = async (userId: string) => {
     try {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+      const { data, error } = await withTimeout(
+        supabase.from("profiles").select("*").eq("id", userId).maybeSingle()
+      );
       if (error) {
         console.error("Profile fetch error:", error);
         return null;
@@ -53,29 +51,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = createClient();
 
-    // Safety net: never let the UI hang forever if Supabase is slow/unresponsive
-    const timeout = setTimeout(() => {
-      console.error("[auth] getUser timed out after 8s");
-      setLoading(false);
-    }, 8000);
-
-    // Get initial session
-    supabase.auth.getUser().then(async ({ data: { user }, error }) => {
-      clearTimeout(timeout);
-      console.log("[auth] getUser result:", { user: user?.id, error });
-      setUser(user);
-      if (user) {
-        const prof = await fetchProfile(user.id);
-        console.log("[auth] profile result:", prof);
-        setProfile(prof);
-      }
-      setLoading(false);
-      console.log("[auth] loading set to false");
-    }).catch((err) => {
-      clearTimeout(timeout);
-      console.error("[auth] getUser exception:", err);
-      setLoading(false);
-    });
+    withTimeout(supabase.auth.getUser())
+      .then(async ({ data: { user }, error }) => {
+        console.log("[auth] getUser result:", { user: user?.id, error });
+        setUser(user);
+        if (user) {
+          const prof = await fetchProfile(user.id);
+          console.log("[auth] profile result:", prof);
+          setProfile(prof);
+        }
+        setLoading(false);
+        console.log("[auth] loading set to false");
+      })
+      .catch((err) => {
+        console.error("[auth] getUser exception:", err);
+        setLoading(false);
+      });
 
     // Listen for auth changes
     const {

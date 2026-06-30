@@ -19,3 +19,21 @@ export function createClient() {
     }
   );
 }
+
+// Races a promise against a hard timeout so callers never hang, regardless
+// of whether the underlying request actually honors cancellation.
+export function withTimeout<T>(promise: PromiseLike<T>, ms = 10000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Request timed out")), ms);
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}

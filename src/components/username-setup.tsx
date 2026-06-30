@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { useTheme } from "@/components/theme-provider";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, withTimeout } from "@/lib/supabase/client";
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/;
 const MIN_LENGTH = 3;
@@ -30,11 +30,13 @@ export function UsernameSetup() {
     setChecking(true);
     try {
       const supabase = createClient();
-      const { data } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("username", value.toLowerCase())
-        .maybeSingle();
+      const { data } = await withTimeout(
+        supabase
+          .from("profiles")
+          .select("id")
+          .eq("username", value.toLowerCase())
+          .maybeSingle()
+      );
       setError(data ? "Username is already taken" : null);
     } catch (err) {
       console.error("[username] uniqueness check failed:", err);
@@ -63,16 +65,20 @@ export function UsernameSetup() {
     setError(null);
     try {
       const supabase = createClient();
-      const { data: existing } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("username", username.toLowerCase())
-        .maybeSingle();
+      const { data: existing } = await withTimeout(
+        supabase
+          .from("profiles")
+          .select("id")
+          .eq("username", username.toLowerCase())
+          .maybeSingle()
+      );
       if (existing) { setError("Username is already taken"); return; }
-      const { error: insertError } = await supabase.from("profiles").insert({
-        id: user!.id,
-        username: username.toLowerCase(),
-      });
+      const { error: insertError } = await withTimeout(
+        supabase.from("profiles").insert({
+          id: user!.id,
+          username: username.toLowerCase(),
+        })
+      );
       if (insertError) {
         setError(insertError.code === "23505" ? "Username is already taken" : "Something went wrong. Try again.");
         return;
