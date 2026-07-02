@@ -56,7 +56,7 @@ export default function LoginPage() {
             href="/"
             className="text-lg font-extralight tracking-wide text-[var(--text)]"
           >
-            Smash Academy
+            Smash Modding Academy
           </Link>
           <p className="mt-2 text-[var(--text-muted)] text-sm">
             Sign in to continue

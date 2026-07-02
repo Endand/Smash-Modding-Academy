@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/components/auth-provider";
+import { ContentProvider } from "@/components/content-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -15,7 +16,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Smash Academy — Learn Super Smash Bros. Ultimate Modding",
+  title: "Smash Modding Academy — Learn Super Smash Bros. Ultimate Modding",
   description:
     "A free, structured curriculum for learning Super Smash Bros. Ultimate character modding — from setting up your tools to building custom fighters from scratch.",
   icons: {
@@ -32,7 +33,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}>
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <ContentProvider>{children}</ContentProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

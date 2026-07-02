@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 55">
+  <polygon
+    points="50,9 59.2,32.8 82.5,22.5 72.2,45.8 96,55 72.2,64.2 82.5,87.5 59.2,77.2 50,101 40.8,77.2 17.5,87.5 27.8,64.2 4,55 27.8,45.8 17.5,22.5 40.8,32.8"
+    fill="#5aaca7"
+  />
+  <text x="50" y="42"
+    text-anchor="middle" dominant-baseline="central"
+    font-family="ui-monospace,'JetBrains Mono',Consolas,monospace"
+    font-size="16" font-weight="700" fill="#ffffff" letter-spacing="2">SMA</text>
+</svg>

@@ -67,7 +67,7 @@ export function Nav() {
             href="/"
             className="text-lg font-extralight tracking-wide text-[var(--text)]"
           >
-            Smash Academy
+            Smash Modding Academy
           </Link>
           <div className="hidden sm:flex items-center gap-6">
             <Link
@@ -117,6 +117,14 @@ export function Nav() {
               {profile?.username && (
                 <span className="hidden sm:inline font-mono text-[12px] text-[var(--text-muted)]">
                   @{profile.username}
+                </span>
+              )}
+              {profile?.is_admin && (
+                <span
+                  className="hidden sm:inline font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded-[var(--radius-tag)]"
+                  style={{ color: "var(--accent-medium)", border: "1px solid var(--accent-medium)" }}
+                >
+                  Admin
                 </span>
               )}
               <button

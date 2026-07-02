@@ -72,3 +72,18 @@ body {
 .font-mono {
   font-family: var(--font-jetbrains), monospace;
 }
+
+/* Admin inline editing */
+[data-admin-field] {
+  cursor: text;
+  outline: none;
+  border-radius: 2px;
+}
+[data-admin-field]:hover {
+  outline: 1px dashed var(--accent-medium);
+  outline-offset: 4px;
+}
+[data-admin-field]:focus {
+  outline: 2px solid var(--accent-medium);
+  outline-offset: 4px;
+}
