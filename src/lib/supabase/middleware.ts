@@ -43,13 +43,16 @@ export async function updateSession(request: NextRequest) {
     !pathname.startsWith("/auth/") &&
     pathname !== "/login"
   ) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("id")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (!profile) {
+    // Only redirect when we're certain the profile doesn't exist.
+    // On any query error (network, RLS, timeout) we let the request through
+    // to avoid trapping users in a redirect loop.
+    if (!profileError && !profile) {
       const url = request.nextUrl.clone();
       url.pathname = "/setup-username";
       return NextResponse.redirect(url);

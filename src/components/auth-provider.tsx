@@ -72,15 +72,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
-      if (currentUser) {
-        const prof = await fetchProfile(currentUser.id);
-        setProfile(prof);
-      } else {
+      if (!currentUser) {
         setProfile(null);
+        setLoading(false);
+        return;
       }
+      // TOKEN_REFRESHED is just a background credential rotation — the user
+      // and their profile haven't changed, so skip the re-fetch to avoid
+      // briefly nulling out profile (and losing the admin badge).
+      if (event === "TOKEN_REFRESHED") {
+        setLoading(false);
+        return;
+      }
+      const prof = await fetchProfile(currentUser.id);
+      // Only update profile if the fetch succeeded; on failure keep whatever
+      // was already there rather than wiping admin status.
+      if (prof !== null) setProfile(prof);
       setLoading(false);
     });
 
