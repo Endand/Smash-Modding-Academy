@@ -25,16 +25,27 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = createClient();
 
-    // Initial load
-    withTimeout(supabase.from("site_content").select("key, value"))
-      .then(({ data, error }) => {
-        console.log("[content] load:", data?.length ?? 0, "rows", error ? `error: ${error.message}` : "");
-        if (error) return;
-        if (data && data.length > 0) {
-          setContent(Object.fromEntries(data.map((r) => [r.key, r.value])));
+    // Initial load — retry once if the first attempt times out (Supabase
+    // free-tier cold starts can take longer than a single timeout window).
+    const loadContent = async () => {
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const { data, error } = await withTimeout(
+            supabase.from("site_content").select("key, value"),
+            30000
+          );
+          if (error) throw error;
+          if (data && data.length > 0) {
+            setContent(Object.fromEntries(data.map((r) => [r.key, r.value])));
+          }
+          return;
+        } catch (err) {
+          console.warn(`[content] load attempt ${attempt} failed:`, err);
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 3000));
         }
-      })
-      .catch((err) => console.error("[content] load failed:", err));
+      }
+    };
+    loadContent();
 
     // Real-time: any INSERT or UPDATE propagates immediately to all clients
     const channel = supabase

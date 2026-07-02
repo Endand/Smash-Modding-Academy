@@ -52,24 +52,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = createClient();
 
-    withTimeout(supabase.auth.getUser())
-      .then(async ({ data: { user }, error }) => {
-        console.log("[auth] getUser result:", { user: user?.id, error });
-        setUser(user);
-        if (user) {
-          const prof = await fetchProfile(user.id);
-          console.log("[auth] profile result:", prof);
-          setProfile(prof);
-        }
-        setLoading(false);
-        console.log("[auth] loading set to false");
-      })
-      .catch((err) => {
-        console.error("[auth] getUser exception:", err);
-        setLoading(false);
-      });
-
-    // Listen for auth changes
+    // onAuthStateChange fires INITIAL_SESSION immediately from the local
+    // cached session (no network call), so we don't also call getUser()
+    // which makes a redundant round-trip and doubles the cold-start wait.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -80,16 +65,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         return;
       }
-      // TOKEN_REFRESHED is just a background credential rotation — the user
-      // and their profile haven't changed, so skip the re-fetch to avoid
-      // briefly nulling out profile (and losing the admin badge).
+      // TOKEN_REFRESHED is background credential rotation — user and profile
+      // haven't changed, skip re-fetch to avoid losing the admin badge.
       if (event === "TOKEN_REFRESHED") {
         setLoading(false);
         return;
       }
       const prof = await fetchProfile(currentUser.id);
-      // Only update profile if the fetch succeeded; on failure keep whatever
-      // was already there rather than wiping admin status.
       if (prof !== null) setProfile(prof);
       setLoading(false);
     });
