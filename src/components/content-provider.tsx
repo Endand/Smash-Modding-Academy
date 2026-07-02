@@ -27,12 +27,14 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
 
     // Initial load
     withTimeout(supabase.from("site_content").select("key, value"))
-      .then(({ data }) => {
-        if (data) {
+      .then(({ data, error }) => {
+        console.log("[content] load:", data?.length ?? 0, "rows", error ? `error: ${error.message}` : "");
+        if (error) return;
+        if (data && data.length > 0) {
           setContent(Object.fromEntries(data.map((r) => [r.key, r.value])));
         }
       })
-      .catch(console.error);
+      .catch((err) => console.error("[content] load failed:", err));
 
     // Real-time: any INSERT or UPDATE propagates immediately to all clients
     const channel = supabase
