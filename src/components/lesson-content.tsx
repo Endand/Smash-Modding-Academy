@@ -7,7 +7,8 @@ import { Editable } from "@/components/editable-text";
 import { useContentContext } from "@/components/content-provider";
 import { useAuth } from "@/components/auth-provider";
 import { useCourseStructure, getEffectiveStatus } from "@/hooks/use-course-structure";
-import { getStaticLesson, COURSE_TITLE_KEY } from "@/lib/courses/foundations-data";
+import { getStaticLesson } from "@/lib/courses/foundations-data";
+import { getCourseKeys, getCourseSlug } from "@/lib/courses/course-utils";
 
 // ── Shared admin UI ───────────────────────────────────────────────────────────
 
@@ -377,22 +378,24 @@ function LessonStatusBadge({ lessonKey, hasStaticContent }: { lessonKey: string;
 interface Props {
   lessonKey: string;
   slug: string;
+  courseId?: string;
 }
 
-export function LessonContent({ lessonKey, slug }: Props) {
+export function LessonContent({ lessonKey, slug, courseId = "foundations" }: Props) {
   const { content, updateContent } = useContentContext();
   const { profile } = useAuth();
   const isAdmin = !!profile?.is_admin;
-  const { allLessons } = useCourseStructure();
+  const { allLessons } = useCourseStructure(courseId);
 
-  // Static lesson data for fallbacks
+  // Static lesson data for fallbacks (only exists for foundations lessons)
   const staticLesson = getStaticLesson(lessonKey);
   const d = staticLesson?.content ?? null;
   const lk = lessonKey;
 
   // Lesson status
   const status = getEffectiveStatus(lk, !!d, content);
-  const courseTitle = content[COURSE_TITLE_KEY] ?? "Foundations";
+  const courseTitle = content[getCourseKeys(courseId).titleKey] ?? "Course";
+  const courseSlug = getCourseSlug(courseId, content);
 
   // Prev / Next from live structure
   const currentIdx = allLessons.findIndex((l) => l.slug === slug);
@@ -515,7 +518,7 @@ export function LessonContent({ lessonKey, slug }: Props) {
         <p className="text-sm text-[var(--text-muted)]">
           This lesson isn't available yet. Check back soon.
         </p>
-        <Link href="/courses/foundations" className="inline-block mt-6 font-mono text-[11px] uppercase tracking-widest" style={{ color: "var(--accent-medium)" }}>
+        <Link href={`/courses/${courseSlug}`} className="inline-block mt-6 font-mono text-[11px] uppercase tracking-widest" style={{ color: "var(--accent-medium)" }}>
           ← Back to {courseTitle}
         </Link>
       </div>
@@ -529,7 +532,7 @@ export function LessonContent({ lessonKey, slug }: Props) {
       <nav className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-[var(--text-muted)] mb-10" aria-label="Breadcrumb">
         <Link href="/curriculum" className="hover:text-[var(--text)] transition-colors">Curriculum</Link>
         <span className="opacity-30">/</span>
-        <Link href="/courses/foundations" className="hover:text-[var(--text)] transition-colors">{courseTitle}</Link>
+        <Link href={`/courses/${courseSlug}`} className="hover:text-[var(--text)] transition-colors">{courseTitle}</Link>
         <span className="opacity-30">/</span>
         <span style={{ color: "var(--text)" }}>{content[`${lk}_title`] ?? staticLesson?.titleFallback}</span>
       </nav>
@@ -752,7 +755,7 @@ export function LessonContent({ lessonKey, slug }: Props) {
       {/* Prev / Next navigation */}
       <div className="flex items-start justify-between gap-4 pt-8" style={{ borderTop: "1px solid var(--border-color)" }}>
         {isAccessiblePrev ? (
-          <Link href={`/courses/foundations/${prev!.slug}`} className="flex items-center gap-2 text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+          <Link href={`/courses/${courseSlug}/${prev!.slug}`} className="flex items-center gap-2 text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
             <ChevronLeft size={15} className="shrink-0" />
             <div>
               <div className="font-mono text-[9px] uppercase tracking-widest opacity-50 mb-0.5">Previous</div>
@@ -761,7 +764,7 @@ export function LessonContent({ lessonKey, slug }: Props) {
           </Link>
         ) : <div />}
         {isAccessibleNext ? (
-          <Link href={`/courses/foundations/${next!.slug}`} className="flex items-center gap-2 text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors text-right">
+          <Link href={`/courses/${courseSlug}/${next!.slug}`} className="flex items-center gap-2 text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors text-right">
             <div>
               <div className="font-mono text-[9px] uppercase tracking-widest opacity-50 mb-0.5">Next</div>
               <div>{content[`${next!.lessonKey}_title`] ?? next!.titleFallback}</div>

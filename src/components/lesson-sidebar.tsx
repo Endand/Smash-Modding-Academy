@@ -6,22 +6,28 @@ import { ChevronLeft, ChevronDown, BookOpen, Wrench } from "lucide-react";
 import { useContentContext } from "@/components/content-provider";
 import { useAuth } from "@/components/auth-provider";
 import { useCourseStructure, getEffectiveStatus } from "@/hooks/use-course-structure";
-import { COURSE_TITLE_KEY } from "@/lib/courses/foundations-data";
+import { getCourseKeys, getCourseSlug } from "@/lib/courses/course-utils";
 
 const PROJECT_ICONS = new Set(["Wrench", "Hammer", "Package", "Target", "Trophy"]);
 
-export function LessonSidebar({ currentSlug }: { currentSlug: string }) {
+interface SidebarProps {
+  currentSlug: string;
+  courseId?: string;
+}
+
+export function LessonSidebar({ currentSlug, courseId = "foundations" }: SidebarProps) {
   const { content } = useContentContext();
   const { profile } = useAuth();
   const isAdmin = !!profile?.is_admin;
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { sections } = useCourseStructure();
-  const courseTitle = content[COURSE_TITLE_KEY] ?? "Foundations";
+  const { sections } = useCourseStructure(courseId);
+  const courseSlug = getCourseSlug(courseId, content);
+  const courseTitle = content[getCourseKeys(courseId).titleKey] ?? "Course";
 
   const sidebarContent = (
     <div className="py-4">
       <Link
-        href="/courses/foundations"
+        href={`/courses/${courseSlug}`}
         className="flex items-center gap-1.5 px-4 pb-4 font-mono text-[11px] uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
         style={{ borderBottom: "1px solid var(--border-color)" }}
         onClick={() => setMobileOpen(false)}
@@ -78,7 +84,7 @@ export function LessonSidebar({ currentSlug }: { currentSlug: string }) {
                 return isAccessible ? (
                   <Link
                     key={lesson.lessonKey}
-                    href={`/courses/foundations/${lesson.slug}`}
+                    href={`/courses/${courseSlug}/${lesson.slug}`}
                     className="block"
                     onClick={() => setMobileOpen(false)}
                   >

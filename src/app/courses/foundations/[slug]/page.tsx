@@ -38,9 +38,9 @@ export default async function LessonPage({ params }: Props) {
     <>
       <Nav />
       <div className="pt-14 min-h-screen flex flex-col md:flex-row">
-        <LessonSidebar currentSlug={slug} />
+        <LessonSidebar currentSlug={slug} courseId="foundations" />
         <main className="flex-1 min-w-0">
-          <LessonContent lessonKey={lessonKey} slug={slug} />
+          <LessonContent lessonKey={lessonKey} slug={slug} courseId="foundations" />
         </main>
       </div>
       <Footer />
