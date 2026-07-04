@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { createClient, withTimeout } from "@/lib/supabase/client";
+import { computeSlugSync } from "@/lib/courses/slug-sync";
 
 type ContentMap = Record<string, string>;
 
@@ -28,6 +29,10 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
   // Initialised from server-fetched data — no loading flash or fallback flicker.
   const [content, setContent] = useState<ContentMap>(initialContent);
 
+  // Fresh snapshot for updateContent (stable callback) — used by slug sync
+  const contentRef = useRef<ContentMap>(initialContent);
+  useEffect(() => { contentRef.current = content; }, [content]);
+
   useEffect(() => {
     const supabase = createClient();
 
@@ -52,12 +57,25 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
 
   const updateContent = useCallback(async (key: string, value: string) => {
     const supabase = createClient();
-    setContent((prev) => ({ ...prev, [key]: value }));
+
+    // Title edits also sync the matching course/lesson URL slug
+    const writes: [string, string][] = [
+      [key, value],
+      ...computeSlugSync(key, value, contentRef.current),
+    ];
+
+    setContent((prev) => {
+      const next = { ...prev };
+      for (const [k, v] of writes) next[k] = v;
+      return next;
+    });
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      const now = new Date().toISOString();
       await withTimeout(
         supabase.from("site_content").upsert(
-          { key, value, updated_at: new Date().toISOString(), updated_by: user?.id ?? null },
+          writes.map(([k, v]) => ({ key: k, value: v, updated_at: now, updated_by: user?.id ?? null })),
           { onConflict: "key" }
         )
       );
