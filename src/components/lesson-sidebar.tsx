@@ -7,9 +7,7 @@ import { useContentContext } from "@/components/content-provider";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useProgress } from "@/components/progress-provider";
 import { useCourseStructure, getEffectiveStatus } from "@/hooks/use-course-structure";
-import { getCourseKeys, getCourseSlug } from "@/lib/courses/course-utils";
-
-const PROJECT_ICONS = new Set(["Wrench", "Hammer", "Package", "Target", "Trophy"]);
+import { getCourseKeys, getCourseSlug, PROJECT_ICONS } from "@/lib/courses/course-utils";
 
 interface SidebarProps {
   currentSlug: string;

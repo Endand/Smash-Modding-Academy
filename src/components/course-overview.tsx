@@ -18,9 +18,8 @@ import {
   type LiveLesson,
   type LiveSection,
 } from "@/hooks/use-course-structure";
-import { getCourseKeys, getCourseSlug, getCourseStatus, slugFromTitle } from "@/lib/courses/course-utils";
+import { getCourseKeys, getCourseSlug, getCourseStatus, slugFromTitle, PROJECT_ICONS } from "@/lib/courses/course-utils";
 
-const PROJECT_ICONS = new Set(["Wrench", "Hammer", "Package", "Target", "Trophy"]);
 const LEVELS = ["Beginner", "Intermediate", "Advanced"] as const;
 const STATUSES = [
   { value: "published", label: "Published", color: "var(--accent-medium)" },

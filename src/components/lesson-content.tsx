@@ -10,7 +10,7 @@ import { useContentContext } from "@/components/content-provider";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useCourseStructure, getEffectiveStatus, parseJSON } from "@/hooks/use-course-structure";
 import { getStaticLesson } from "@/lib/courses/foundations-data";
-import { getCourseKeys, getCourseSlug, slugFromTitle } from "@/lib/courses/course-utils";
+import { getCourseKeys, getCourseSlug, slugFromTitle, PROJECT_ICONS } from "@/lib/courses/course-utils";
 
 // ── Shared admin UI ───────────────────────────────────────────────────────────
 
@@ -707,6 +707,11 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations" }: Pro
   const d = staticLesson?.content ?? null;
   const lk = lessonKey;
 
+  // Projects get a leaner layout: no overview/knowledge check/resources,
+  // and an Odin-style boxed assignment
+  const iconName = content[`${lk}_icon`] ?? staticLesson?.iconFallback ?? "BookOpen";
+  const isProject = PROJECT_ICONS.has(iconName);
+
   // Lesson status
   const status = getEffectiveStatus(lk, !!d, content);
   const courseTitle = content[getCourseKeys(courseId).titleKey] ?? "Course";
@@ -923,8 +928,8 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations" }: Pro
         </p>
       )}
 
-      {/* ── Lesson Overview (hidden for learners when empty) ── */}
-      {(outcomes.length > 0 || canManage) && (
+      {/* ── Lesson Overview (hidden on projects; hidden for learners when empty) ── */}
+      {!isProject && (outcomes.length > 0 || canManage) && (
         <div className="mb-12 px-5 pt-4 pb-5" style={{ background: "var(--surface)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-card)" }}>
           <SectionLabel label="Lesson Overview" />
           <ul className="flex flex-col gap-2.5">
@@ -1070,36 +1075,72 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations" }: Pro
       </div>
 
       {/* ── Assignment ───────────────────────────────────── */}
-      <div className="mb-14">
-        <SectionLabel label="Assignment" />
-        {assignItems.length > 0 ? (
-          <>
-            <Editable
-              as="p"
-              contentKey={`${lk}_assign_desc`}
-              fallback={d?.assignment?.description ?? "Before moving on, complete the following tasks."}
-              className="text-[14px] leading-relaxed mb-4"
-              style={{ color: "var(--text-muted)" }}
-            />
-            <ul className="flex flex-col gap-3">
-              {assignItems.map(({ i, fallback }) => (
+      {isProject ? (
+        /* Odin-style boxed assignment for projects */
+        <div
+          className="mb-14 px-6 pt-5 pb-6"
+          style={{ background: "var(--surface)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-card)" }}
+        >
+          <SectionLabel label="Assignment" />
+          <Editable
+            as="p"
+            contentKey={`${lk}_assign_desc`}
+            fallback={d?.assignment?.description ?? "Complete the following steps."}
+            className="text-[14px] leading-relaxed mb-5"
+            style={{ color: "var(--text)" }}
+          />
+          {assignItems.length > 0 ? (
+            <ol className="flex flex-col gap-3">
+              {assignItems.map(({ i, fallback }, pos) => (
                 <li key={i} className="group flex items-start gap-3 text-[14px]">
-                  <span className="shrink-0 mt-[7px] w-1.5 h-1.5 rounded-full" style={{ background: "var(--accent-medium)" }} />
+                  <span className="shrink-0 font-mono text-[12px] mt-[2px] w-5 text-right" style={{ color: "var(--accent-medium)" }}>
+                    {pos + 1}.
+                  </span>
                   <Editable as="span" contentKey={`${lk}_assign_${i}`} fallback={fallback} className="flex-1 leading-relaxed" style={{ color: "var(--text-muted)" }} />
-                  {canManage && <RemoveBtn onClick={() => deleteAssignItem(i)} title="Remove task" />}
+                  {canManage && <RemoveBtn onClick={() => deleteAssignItem(i)} title="Remove step" />}
                 </li>
               ))}
-            </ul>
-          </>
-        ) : (
-          <p className="text-[13px] italic" style={{ color: "var(--text-muted)", opacity: 0.5 }}>
-            There is no assignment for this lesson.
-          </p>
-        )}
-        {canManage && <AddBtn label="Add Task" onClick={addAssignItem} />}
-      </div>
+            </ol>
+          ) : (
+            <p className="text-[13px] italic" style={{ color: "var(--text-muted)", opacity: 0.5 }}>
+              No steps yet.
+            </p>
+          )}
+          {canManage && <AddBtn label="Add Step" onClick={addAssignItem} />}
+        </div>
+      ) : (
+        <div className="mb-14">
+          <SectionLabel label="Assignment" />
+          {assignItems.length > 0 ? (
+            <>
+              <Editable
+                as="p"
+                contentKey={`${lk}_assign_desc`}
+                fallback={d?.assignment?.description ?? "Before moving on, complete the following tasks."}
+                className="text-[14px] leading-relaxed mb-4"
+                style={{ color: "var(--text-muted)" }}
+              />
+              <ul className="flex flex-col gap-3">
+                {assignItems.map(({ i, fallback }) => (
+                  <li key={i} className="group flex items-start gap-3 text-[14px]">
+                    <span className="shrink-0 mt-[7px] w-1.5 h-1.5 rounded-full" style={{ background: "var(--accent-medium)" }} />
+                    <Editable as="span" contentKey={`${lk}_assign_${i}`} fallback={fallback} className="flex-1 leading-relaxed" style={{ color: "var(--text-muted)" }} />
+                    {canManage && <RemoveBtn onClick={() => deleteAssignItem(i)} title="Remove task" />}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="text-[13px] italic" style={{ color: "var(--text-muted)", opacity: 0.5 }}>
+              There is no assignment for this lesson.
+            </p>
+          )}
+          {canManage && <AddBtn label="Add Task" onClick={addAssignItem} />}
+        </div>
+      )}
 
-      {/* ── Knowledge Check ──────────────────────────────── */}
+      {/* ── Knowledge Check (not shown on projects) ──────── */}
+      {!isProject && (
       <div className="mb-14">
         <SectionLabel label="Knowledge Check" />
         {kcItems.length > 0 ? (
@@ -1132,8 +1173,10 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations" }: Pro
         )}
         {canManage && <AddBtn label="Add Question" onClick={addKCItem} />}
       </div>
+      )}
 
-      {/* ── Additional Resources ─────────────────────────── */}
+      {/* ── Additional Resources (not shown on projects) ─── */}
+      {!isProject && (
       <div className="mb-14">
         <SectionLabel label="Additional Resources" />
         {resItems.length > 0 ? (
@@ -1174,6 +1217,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations" }: Pro
         )}
         {canManage && <AddBtn label="Add Resource" onClick={addResource} />}
       </div>
+      )}
 
       {/* Mark complete */}
       {status === "published" && <MarkCompleteButton lessonKey={lk} />}

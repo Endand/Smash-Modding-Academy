@@ -58,3 +58,6 @@ export function getCourseStatus(courseId: string, content: Record<string, string
 
 // Initial course list — shown on curriculum page unless deleted from site_content
 export const SEED_COURSE_IDS = ["foundations", "character-modding"];
+
+// Icons that mark a lesson as a project (drives the Project badge and layout)
+export const PROJECT_ICONS = new Set(["Wrench", "Hammer", "Package", "Target", "Trophy"]);
