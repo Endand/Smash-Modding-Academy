@@ -119,13 +119,23 @@ export default async function LessonPage({ params }: Props) {
   if (!resolved) return notFound();
   const { courseId, lessonKey } = resolved;
 
+  // Most recent edit across this lesson's content keys
+  const supabase = await createClient();
+  const { data: upd } = await supabase
+    .from("site_content")
+    .select("updated_at")
+    .like("key", `${lessonKey.replace(/_/g, "\\_")}\\_%`)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+  const lastUpdated = upd?.[0]?.updated_at ?? null;
+
   return (
     <>
       <Nav />
       <div className="pt-14 min-h-screen flex flex-col md:flex-row">
         <LessonSidebar currentSlug={lessonSlug} courseId={courseId} />
         <main className="flex-1 min-w-0">
-          <LessonContent lessonKey={lessonKey} slug={lessonSlug} courseId={courseId} />
+          <LessonContent lessonKey={lessonKey} slug={lessonSlug} courseId={courseId} lastUpdated={lastUpdated} />
         </main>
       </div>
       <Footer />

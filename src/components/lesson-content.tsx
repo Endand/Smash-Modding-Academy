@@ -758,15 +758,20 @@ function StaffPicker({
   );
 }
 
-function AuthorCredits({ lk }: { lk: string }) {
+function AuthorCredits({ lk, lastUpdated }: { lk: string; lastUpdated: string | null }) {
   const { content, updateContent } = useContentContext();
   const { can } = usePermissions();
   const canEditAuthors = can("edit_authors");
   const author = (content[`${lk}_author`] ?? "").trim();
   const editors = (content[`${lk}_editors`] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
-  // Learners only see the block when credits are set
-  if (!canEditAuthors && !author && editors.length === 0) return null;
+  // Fixed locale + UTC so server and client render the same string
+  const updatedDisplay = lastUpdated
+    ? new Date(lastUpdated).toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" })
+    : null;
+
+  // Learners only see the block when credits or an edit date exist
+  if (!canEditAuthors && !author && editors.length === 0 && !updatedDisplay) return null;
 
   const saveEditors = (list: string[]) => updateContent(`${lk}_editors`, list.join(", "));
 
@@ -822,6 +827,12 @@ function AuthorCredits({ lk }: { lk: string }) {
           )}
         </div>
       )}
+      {updatedDisplay && (
+        <div className="flex items-center gap-2">
+          <span className="uppercase tracking-widest text-[10px] opacity-50 shrink-0">Updated</span>
+          <span>{updatedDisplay}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -830,7 +841,23 @@ function AuthorCredits({ lk }: { lk: string }) {
 
 function MarkCompleteButton({ lessonKey }: { lessonKey: string }) {
   const { completed, signedIn, toggleComplete } = useProgress();
-  if (!signedIn) return null;
+
+  // Logged-out nudge: same spot the Mark Complete button would occupy
+  if (!signedIn) {
+    return (
+      <div className="flex justify-center mb-10">
+        <Link
+          href="/login"
+          className="flex items-center gap-2 px-5 py-2 font-mono text-[11px] uppercase tracking-widest rounded-[var(--radius-button)] transition-colors hover:text-[var(--text)] hover:border-[var(--text-muted)]"
+          style={{ border: "1px solid var(--border-strong)", color: "var(--text-muted)" }}
+        >
+          <Check size={13} strokeWidth={2.5} className="opacity-50" />
+          Sign in to track your progress
+        </Link>
+      </div>
+    );
+  }
+
   const done = completed.has(lessonKey);
 
   return (
@@ -889,9 +916,10 @@ interface Props {
   lessonKey: string;
   slug: string;
   courseId?: string;
+  lastUpdated?: string | null;
 }
 
-export function LessonContent({ lessonKey, slug, courseId = "foundations" }: Props) {
+export function LessonContent({ lessonKey, slug, courseId = "foundations", lastUpdated = null }: Props) {
   const { content, updateContent } = useContentContext();
   const { can } = usePermissions();
   const canEdit = can("edit_content");
@@ -1456,7 +1484,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations" }: Pro
       )}
 
       {/* Author credits */}
-      <AuthorCredits lk={lk} />
+      <AuthorCredits lk={lk} lastUpdated={lastUpdated} />
 
       {/* Mark complete */}
       {status === "published" && <MarkCompleteButton lessonKey={lk} />}
