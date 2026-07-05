@@ -305,9 +305,10 @@ function SlugRow({ courseId, courseSlug }: { courseId: string; courseSlug: strin
 
 export function CourseOverview({ courseId }: { courseId: string }) {
   const { content, updateContent } = useContentContext();
-  const { can, isAdmin } = usePermissions();
+  const { can } = usePermissions();
   const canManage = can("manage_sections");
   const canPublish = can("manage_lessons");
+  const canEditUrls = can("edit_urls");
   const { sections, allLessons } = useCourseStructure(courseId);
   const { completed, signedIn } = useProgress();
   const { titleKey, descKey } = getCourseKeys(courseId);
@@ -411,7 +412,7 @@ export function CourseOverview({ courseId }: { courseId: string }) {
           <LevelBadge courseId={courseId} />
         </div>
         <Editable contentKey={descKey} fallback="Description of this course." as="p" className="text-[var(--text-muted)] leading-relaxed" />
-        {isAdmin && (
+        {canEditUrls && (
           <SlugRow courseId={courseId} courseSlug={courseSlug} />
         )}
         <div className="mt-5 font-mono text-[11px] flex items-center gap-3" style={{ color: "var(--text-muted)" }}>

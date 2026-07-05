@@ -30,7 +30,22 @@ const PERMISSIONS = [
   {
     key: "manage_lessons",
     label: "Manage Lesson Availability",
-    desc: 'Publish and unpublish lessons — controls whether a lesson links out or shows "Soon" on the course page',
+    desc: 'Publish and unpublish lessons and courses — controls whether they link out or show "Soon", plus lesson difficulty levels',
+  },
+  {
+    key: "manage_courses",
+    label: "Add & Remove Courses",
+    desc: "Create new courses and remove existing ones from the curriculum page, and view removed courses",
+  },
+  {
+    key: "edit_urls",
+    label: "Edit Page URLs",
+    desc: "Manually override the URL slug of a course or lesson (titles still auto-sync the URL either way)",
+  },
+  {
+    key: "edit_authors",
+    label: "Edit Author Credits",
+    desc: 'Set the "Written by" and "Edited by" staff credits shown at the bottom of each lesson',
   },
   {
     key: "manage_roles",
@@ -281,6 +296,8 @@ export default function AdminPage() {
           >
             Full admin access is always granted to users with{" "}
             <code>is_admin = true</code> in the profiles table, regardless of role.
+            Assigning roles to users and the admin flag itself stay admin-only and
+            can&apos;t be delegated to a role.
           </p>
 
           {/* Users — role assignment (full admins only) */}

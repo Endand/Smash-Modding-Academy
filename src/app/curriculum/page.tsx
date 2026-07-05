@@ -7,7 +7,6 @@ import { Footer } from "@/components/footer";
 import { ArrowRight, Plus, X, AlertTriangle } from "lucide-react";
 import { Editable } from "@/components/editable-text";
 import { useContentContext } from "@/components/content-provider";
-import { useAuth } from "@/components/auth-provider";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
   getCourseKeys,
@@ -88,8 +87,9 @@ function CourseCard({
   onRemove: () => void;
 }) {
   const { content } = useContentContext();
-  const { can, isAdmin } = usePermissions();
+  const { can } = usePermissions();
   const canPublish = can("manage_lessons");
+  const canManageCourses = can("manage_courses");
 
   const { titleKey, levelKey, descKey } = getCourseKeys(courseId);
   const courseSlug = getCourseSlug(courseId, content);
@@ -100,8 +100,8 @@ function CourseCard({
   const level = content[levelKey] ?? "Beginner";
   const desc  = content[descKey]  ?? "Description of this course.";
 
-  // Non-admins don't see deleted or "soon" courses… actually show soon but dimmed
-  if (isDeleted && !isAdmin) return null;
+  // Only course-managers see removed courses; "soon" courses stay visible but dimmed
+  if (isDeleted && !canManageCourses) return null;
 
   const isAvailable = status === "available";
   const href = `/courses/${courseSlug}`;
@@ -124,12 +124,12 @@ function CourseCard({
           >
             {level}
           </span>
-          {isDeleted && isAdmin && (
+          {isDeleted && canManageCourses && (
             <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-[var(--radius-tag)] shrink-0" style={{ color: "var(--text-muted)", border: "1px solid var(--border-strong)" }}>
               Removed
             </span>
           )}
-          {!isAvailable && !isDeleted && isAdmin && (
+          {!isAvailable && !isDeleted && canPublish && (
             <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-[var(--radius-tag)] shrink-0" style={{ color: "var(--text-muted)", border: "1px solid var(--border-strong)" }}>
               Soon
             </span>
@@ -141,7 +141,7 @@ function CourseCard({
         {isAvailable && !isDeleted && (
           <ArrowRight size={16} strokeWidth={1.5} className="transition-opacity opacity-30 group-hover:opacity-70" style={{ color: "var(--text)" }} />
         )}
-        {isAdmin && (
+        {canManageCourses && (
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
             title="Remove course"
@@ -168,15 +168,15 @@ function CourseCard({
 
 export default function CurriculumPage() {
   const { content, updateContent } = useContentContext();
-  const { profile } = useAuth();
-  const isAdmin = !!profile?.is_admin;
+  const { can } = usePermissions();
+  const canManageCourses = can("manage_courses");
 
   // Live course ID list: seed + any dynamic additions, minus deleted
   const courseIds: string[] = parseJSON(
     content["curriculum_course_ids"],
     SEED_COURSE_IDS
   );
-  const visibleIds = isAdmin
+  const visibleIds = canManageCourses
     ? courseIds
     : courseIds.filter((id) => content[`course_${id}_deleted`] !== "1");
 
@@ -251,8 +251,8 @@ export default function CurriculumPage() {
               />
             ))}
 
-            {/* Add Course button — admin only */}
-            {isAdmin && (
+            {/* Add Course button — requires manage_courses */}
+            {canManageCourses && (
               addingCourse ? (
                 <div
                   className="p-5 flex items-center gap-2"

@@ -9,6 +9,9 @@ export type Permission =
   | "manage_sections"
   | "edit_icons"
   | "manage_lessons"
+  | "manage_courses"
+  | "edit_urls"
+  | "edit_authors"
   | "manage_roles";
 
 // site_content key holding the permission map for a role

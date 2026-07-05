@@ -613,12 +613,12 @@ function LessonSlugRow({
   fallbackTitle: string;
 }) {
   const { content, updateContent } = useContentContext();
-  const { isAdmin } = usePermissions();
+  const { can } = usePermissions();
   const currentSlug = content[`${lk}_slug`] ?? urlSlug;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(currentSlug);
 
-  if (!isAdmin) return null;
+  if (!can("edit_urls")) return null;
 
   const applySlug = (slug: string) => {
     const clean = slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || currentSlug;
@@ -759,12 +759,13 @@ function StaffPicker({
 
 function AuthorCredits({ lk }: { lk: string }) {
   const { content, updateContent } = useContentContext();
-  const { isAdmin } = usePermissions();
+  const { can } = usePermissions();
+  const canEditAuthors = can("edit_authors");
   const author = (content[`${lk}_author`] ?? "").trim();
   const editors = (content[`${lk}_editors`] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
   // Learners only see the block when credits are set
-  if (!isAdmin && !author && editors.length === 0) return null;
+  if (!canEditAuthors && !author && editors.length === 0) return null;
 
   const saveEditors = (list: string[]) => updateContent(`${lk}_editors`, list.join(", "));
 
@@ -773,11 +774,11 @@ function AuthorCredits({ lk }: { lk: string }) {
       className="mb-4 pt-4 flex flex-col gap-1.5 font-mono text-[12px]"
       style={{ borderTop: "1px solid var(--border-color)", color: "var(--text-muted)" }}
     >
-      {(isAdmin || author) && (
+      {(canEditAuthors || author) && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="uppercase tracking-widest text-[10px] opacity-50 shrink-0">Written by</span>
           {author && <span style={{ color: "var(--text)" }}>@{author}</span>}
-          {isAdmin && author && (
+          {canEditAuthors && author && (
             <button
               onClick={() => updateContent(`${lk}_author`, "")}
               title="Remove author"
@@ -786,16 +787,16 @@ function AuthorCredits({ lk }: { lk: string }) {
               <X size={10} />
             </button>
           )}
-          {isAdmin && !author && (
+          {canEditAuthors && !author && (
             <StaffPicker label="Set author…" exclude={[]} onSelect={(u) => updateContent(`${lk}_author`, u)} />
           )}
         </div>
       )}
       {/* Edited by: hidden from the public entirely when there are no editors */}
-      {(isAdmin || editors.length > 0) && (
+      {(canEditAuthors || editors.length > 0) && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="uppercase tracking-widest text-[10px] opacity-50 shrink-0">Edited by</span>
-          {isAdmin ? (
+          {canEditAuthors ? (
             <>
               {editors.map((e) => (
                 <span key={e} className="flex items-center gap-1" style={{ color: "var(--text)" }}>
