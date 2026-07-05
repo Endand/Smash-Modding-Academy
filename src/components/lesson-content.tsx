@@ -741,7 +741,7 @@ function AuthorCredits({ lk }: { lk: string }) {
 
   return (
     <div
-      className="mb-10 pt-5 flex flex-col gap-2 font-mono text-[12px]"
+      className="mb-4 pt-4 flex flex-col gap-1.5 font-mono text-[12px]"
       style={{ borderTop: "1px solid var(--border-color)", color: "var(--text-muted)" }}
     >
       {(isAdmin || author) && (
