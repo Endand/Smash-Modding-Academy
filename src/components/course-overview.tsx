@@ -8,8 +8,9 @@ import { useProgress } from "@/components/progress-provider";
 import { Editable } from "@/components/editable-text";
 import { EditableIcon } from "@/components/editable-icon";
 import { useContentContext } from "@/components/content-provider";
+import { useAuth } from "@/components/auth-provider";
 import { EditAccessManager } from "@/components/lesson-content";
-import { usePermissions, EditScopeProvider, courseAclKey } from "@/hooks/use-permissions";
+import { usePermissions, EditScopeProvider, evalPermission, courseAclKey } from "@/hooks/use-permissions";
 import {
   useCourseStructure,
   getEffectiveStatus,
@@ -100,9 +101,10 @@ function StatusControl({ lessonKey, hasStaticContent }: { lessonKey: string; has
 // ── Lesson row ────────────────────────────────────────────────────────────────
 
 function LessonRow({
-  lesson, courseSlug, isLast, onRemove, onMove, canMoveUp, canMoveDown,
+  lesson, courseId, courseSlug, isLast, onRemove, onMove, canMoveUp, canMoveDown,
 }: {
   lesson: LiveLesson;
+  courseId: string;
   courseSlug: string;
   isLast: boolean;
   onRemove: () => void;
@@ -111,17 +113,22 @@ function LessonRow({
   canMoveDown: boolean;
 }) {
   const { content } = useContentContext();
+  const { profile } = useAuth();
   const { can } = usePermissions();
   const canManage = can("manage_sections");
   const canPublish = can("manage_lessons");
+  // Granted to edit THIS lesson (directly or via its course) — lets them reach
+  // it even while it's draft/soon.
+  const canEditThis = evalPermission(profile, content, { type: "lesson", courseId, lessonKey: lesson.lessonKey }, "edit_content");
+  const canSeeUnpublished = canPublish || canEditThis;
   const { completed } = useProgress();
   const iconName = content[`${lesson.lessonKey}_icon`] ?? lesson.iconFallback;
   const isProject = PROJECT_ICONS.has(iconName);
   const status = getEffectiveStatus(lesson.lessonKey, lesson.hasStaticContent, content);
-  const isAccessible = status === "published" || canPublish;
+  const isAccessible = status === "published" || canSeeUnpublished;
   const isComplete = completed.has(lesson.lessonKey);
 
-  if (status === "draft" && !canPublish) return null;
+  if (status === "draft" && !canSeeUnpublished) return null;
 
   const inner = (
     <div
@@ -524,6 +531,7 @@ export function CourseOverview({ courseId }: { courseId: string }) {
                 <LessonRow
                   key={lesson.lessonKey}
                   lesson={lesson}
+                  courseId={courseId}
                   courseSlug={courseSlug}
                   isLast={i === section.lessons.length - 1 && !canManage}
                   onRemove={() => removeLesson(lesson)}

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, createElement, useContext } from "react";
-import { useAuth } from "@/components/auth-provider";
+import { useAuth, type Profile } from "@/components/auth-provider";
 import { useContentContext } from "@/components/content-provider";
 
 // Permission keys defined on the /admin Roles & Permissions panel.
@@ -66,28 +66,34 @@ export function hasScopeAccess(
   );
 }
 
-// Admins can do everything, everywhere. A role-holder can do X here only if
-// their role grants X *and* they've been granted access to this scope.
+// Pure permission check — usable outside React (e.g. inside a .map() where
+// hooks can't run). Admins can do everything; a role-holder can do X in a
+// scope only if their role grants X and they've been granted that scope.
+export function evalPermission(
+  profile: Profile | null,
+  content: Record<string, string>,
+  scope: EditScope,
+  perm: Permission
+): boolean {
+  if (profile?.is_admin) return true;
+  const role = profile?.role;
+  if (!role) return false;
+
+  let rolePerms: Record<string, boolean>;
+  try { rolePerms = JSON.parse(content[rolePermKey(role)] ?? "{}"); }
+  catch { return false; }
+  if (!rolePerms[perm]) return false;
+
+  return hasScopeAccess(profile?.username, content, scope);
+}
+
 export function usePermissions(scopeOverride?: EditScope) {
   const { profile } = useAuth();
   const { content } = useContentContext();
   const ctxScope = useEditScope();
   const scope = scopeOverride ?? ctxScope;
-  const isAdmin = !!profile?.is_admin;
 
-  const can = (perm: Permission): boolean => {
-    if (isAdmin) return true;
-    const role = profile?.role;
-    if (!role) return false;
+  const can = (perm: Permission): boolean => evalPermission(profile, content, scope, perm);
 
-    let rolePerms: Record<string, boolean>;
-    try { rolePerms = JSON.parse(content[rolePermKey(role)] ?? "{}"); }
-    catch { return false; }
-    if (!rolePerms[perm]) return false;
-
-    // Role grants the capability — but only within a granted lesson/course.
-    return hasScopeAccess(profile?.username, content, scope);
-  };
-
-  return { can, isAdmin, scope };
+  return { can, isAdmin: !!profile?.is_admin, scope };
 }

@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronDown, BookOpen, Wrench, Check } from "lucide-react";
 import { useContentContext } from "@/components/content-provider";
-import { usePermissions } from "@/hooks/use-permissions";
+import { useAuth } from "@/components/auth-provider";
+import { usePermissions, evalPermission } from "@/hooks/use-permissions";
 import { useProgress } from "@/components/progress-provider";
 import { useCourseStructure, getEffectiveStatus } from "@/hooks/use-course-structure";
 import { getCourseKeys, getCourseSlug, PROJECT_ICONS } from "@/lib/courses/course-utils";
@@ -16,6 +17,7 @@ interface SidebarProps {
 
 export function LessonSidebar({ currentSlug, courseId = "foundations" }: SidebarProps) {
   const { content } = useContentContext();
+  const { profile } = useAuth();
   const { can } = usePermissions();
   const canPublish = can("manage_lessons");
   const { completed } = useProgress();
@@ -50,11 +52,14 @@ export function LessonSidebar({ currentSlug, courseId = "foundations" }: Sidebar
                 const isProject = PROJECT_ICONS.has(iconName);
                 const isActive = lesson.slug === currentSlug;
                 const status = getEffectiveStatus(lesson.lessonKey, lesson.hasStaticContent, content);
-                const isAccessible = status === "published" || canPublish;
+                // Granted editors/professors can reach their lesson even in draft/soon
+                const canEditThis = evalPermission(profile, content, { type: "lesson", courseId, lessonKey: lesson.lessonKey }, "edit_content");
+                const canSeeUnpublished = canPublish || canEditThis;
+                const isAccessible = status === "published" || canSeeUnpublished;
                 const isComplete = completed.has(lesson.lessonKey);
 
-                // Hide drafts from non-editors
-                if (status === "draft" && !canPublish) return null;
+                // Hide drafts from users who can't edit them
+                if (status === "draft" && !canSeeUnpublished) return null;
 
                 const row = (
                   <div

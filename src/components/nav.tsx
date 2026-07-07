@@ -132,6 +132,14 @@ export function Nav() {
                   Admin
                 </Link>
               )}
+              {!profile?.is_admin && profile?.role && (
+                <span
+                  className="hidden sm:inline font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded-[var(--radius-tag)]"
+                  style={{ color: "var(--accent-medium)", border: "1px solid var(--accent-medium)" }}
+                >
+                  {profile.role}
+                </span>
+              )}
               <button
                 onClick={handleSignOut}
                 className="font-mono text-[11px] uppercase tracking-widest px-4 py-1.5 rounded-[var(--radius-button)] border border-[var(--border-strong)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--text-muted)] transition-colors cursor-pointer"
