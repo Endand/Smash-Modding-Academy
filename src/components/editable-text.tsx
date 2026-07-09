@@ -3,6 +3,7 @@
 import { createElement, useRef, useEffect, useCallback } from "react";
 import { useContentContext } from "./content-provider";
 import { usePermissions } from "@/hooks/use-permissions";
+import { renderInline } from "@/lib/inline-markdown";
 
 interface EditableProps {
   contentKey: string;
@@ -18,7 +19,7 @@ export function Editable({ contentKey, fallback, as = "span", className, style }
   const value = content[contentKey] ?? fallback;
 
   if (!can("edit_content")) {
-    return createElement(as, { className, style: { whiteSpace: "pre-wrap", ...style } }, value);
+    return createElement(as, { className, style: { whiteSpace: "pre-wrap", ...style } }, ...renderInline(value));
   }
 
   return (
@@ -67,17 +68,46 @@ function AdminField({ tag, value, className, style, onSave }: AdminFieldProps) {
     }
   }, [onSave]);
 
+  // Wrap the current selection (or caret) in a markdown marker, saved as text
+  // so bold/italic/underline persist instead of being lost on blur.
+  const wrapSelection = useCallback((marker: string) => {
+    const sel = window.getSelection();
+    const selected = sel ? sel.toString() : "";
+    document.execCommand("insertText", false, `${marker}${selected}${marker}`);
+    if (!selected && sel && sel.focusNode) {
+      // put the caret between the two markers
+      try {
+        const range = document.createRange();
+        range.setStart(sel.focusNode, Math.max(0, sel.focusOffset - marker.length));
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch { /* selection moved — ignore */ }
+    }
+  }, []);
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       (e.currentTarget as HTMLElement).blur();
+      return;
     }
     if (e.key === "Escape") {
       const el = e.currentTarget as HTMLElement;
       el.innerText = saved.current;
       el.blur();
+      return;
     }
-  }, []);
+    // Ctrl/Cmd + B / I / U → insert markdown markers (persist on save)
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
+      const k = e.key.toLowerCase();
+      const marker = k === "b" ? "**" : k === "i" ? "*" : k === "u" ? "__" : null;
+      if (marker) {
+        e.preventDefault();
+        wrapSelection(marker);
+      }
+    }
+  }, [wrapSelection]);
 
   return createElement(tag, {
     ref: (el: HTMLElement | null) => { ref.current = el; },

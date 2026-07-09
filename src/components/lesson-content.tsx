@@ -13,6 +13,7 @@ import { useCourseStructure, getEffectiveStatus, parseJSON } from "@/hooks/use-c
 import { getStaticLesson } from "@/lib/courses/foundations-data";
 import { getCourseKeys, getCourseSlug, slugFromTitle, PROJECT_ICONS } from "@/lib/courses/course-utils";
 import { replaceSlugMapEntry } from "@/lib/courses/slug-sync";
+import { renderInline } from "@/lib/inline-markdown";
 
 // ── Shared admin UI ───────────────────────────────────────────────────────────
 
@@ -288,28 +289,6 @@ function EditableTextarea({
   );
 }
 
-// ── Markdown link renderer ────────────────────────────────────────────────────
-
-function renderWithLinks(text: string): React.ReactNode[] {
-  const parts: React.ReactNode[] = [];
-  const re = /\[([^\]]+)\]\(([^)]+)\)/g;
-  let last = 0, m: RegExpExecArray | null, i = 0;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) parts.push(text.slice(last, m.index));
-    const href = /^https?:\/\/|^mailto:/.test(m[2].trim()) ? m[2].trim() : "#";
-    parts.push(
-      <a key={i++} href={href} target="_blank" rel="noopener noreferrer"
-        className="transition-opacity hover:opacity-75"
-        style={{ color: "#00b0f4", textDecoration: "underline", textUnderlineOffset: "2px" }}>
-        {m[1]}
-      </a>
-    );
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) parts.push(text.slice(last));
-  return parts.length ? parts : [text];
-}
-
 // ── Copy-to-clipboard for code blocks ─────────────────────────────────────────
 
 function CopyCodeBtn({ code }: { code: string }) {
@@ -434,7 +413,7 @@ function BlockRenderer({
           />
         ) : (
           <p className="leading-relaxed text-[15px]" style={{ color: "var(--text-muted)", whiteSpace: "pre-wrap" }}>
-            {renderWithLinks(blockContent || "New paragraph…")}
+            {renderInline(blockContent || "New paragraph…")}
           </p>
         )}
       </div>
@@ -544,7 +523,7 @@ function BlockRenderer({
           {canEdit ? (
             <Editable as="span" contentKey={`${prefix}_content`} fallback="Quote text here…" />
           ) : (
-            <span style={{ whiteSpace: "pre-wrap" }}>{renderWithLinks(blockContent || "Quote text here…")}</span>
+            <span style={{ whiteSpace: "pre-wrap" }}>{renderInline(blockContent || "Quote text here…")}</span>
           )}
         </div>
       </div>
@@ -1218,7 +1197,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
         />
       ) : (
         <p className="leading-relaxed text-[15px] mb-12" style={{ color: "var(--text-muted)", whiteSpace: "pre-wrap" }}>
-          {renderWithLinks(content[`${lk}_intro`] ?? (d?.introduction ?? ""))}
+          {renderInline(content[`${lk}_intro`] ?? (d?.introduction ?? ""))}
         </p>
       )}
 
@@ -1355,7 +1334,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
                         />
                       ) : (
                         <p className="leading-relaxed text-[15px]" style={{ color: "var(--text-muted)", whiteSpace: "pre-wrap" }}>
-                          {renderWithLinks(content[`${lk}_s${i}_p${j}`] ?? paraFallback)}
+                          {renderInline(content[`${lk}_s${i}_p${j}`] ?? paraFallback)}
                         </p>
                       )}
                     </div>
@@ -1378,7 +1357,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
                     {canEdit ? (
                       <Editable as="span" contentKey={`${lk}_s${i}_note`} fallback={def?.note ?? ""} />
                     ) : (
-                      <span style={{ whiteSpace: "pre-wrap" }}>{renderWithLinks(content[`${lk}_s${i}_note`] ?? (def?.note ?? ""))}</span>
+                      <span style={{ whiteSpace: "pre-wrap" }}>{renderInline(content[`${lk}_s${i}_note`] ?? (def?.note ?? ""))}</span>
                     )}
                   </div>
                 </div>
