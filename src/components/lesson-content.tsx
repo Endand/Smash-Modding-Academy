@@ -1081,6 +1081,26 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
   };
   const deleteAssignItem = (idx: number) => updateContent(`${lk}_assign_${idx}_deleted`, "1");
 
+  // Assignment display order
+  type AssignEntry = { i: number; fallback: string };
+  const assignOrderStored = parseJSON<string[]>(content[`${lk}_assign_order`], []);
+  const assignIds = assignItems.map((a) => String(a.i));
+  const assignOrderIds = [
+    ...assignOrderStored.filter((id) => assignIds.includes(id)),
+    ...assignIds.filter((id) => !assignOrderStored.includes(id)),
+  ];
+  const orderedAssignItems = assignOrderIds
+    .map((id) => assignItems.find((a) => String(a.i) === id))
+    .filter((a): a is AssignEntry => !!a);
+  const moveAssignItem = (assignIdx: number, dir: -1 | 1) => {
+    const idx = assignOrderIds.indexOf(String(assignIdx));
+    const j = idx + dir;
+    if (idx < 0 || j < 0 || j >= assignOrderIds.length) return;
+    const next = [...assignOrderIds];
+    [next[idx], next[j]] = [next[j], next[idx]];
+    updateContent(`${lk}_assign_order`, JSON.stringify(next));
+  };
+
   // ── Knowledge Check ───────────────────────────────────────────────────────
   const defaultKCCount = d?.knowledgeCheck.length ?? 0;
   const kcCount = parseInt(content[`${lk}_kc_count`] ?? "", 10) || defaultKCCount;
@@ -1232,7 +1252,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
                 </span>
                 <a
                   href={`#section-${i}`}
-                  className="text-[13px] transition-colors hover:text-[var(--accent-medium)]"
+                  className="text-[13px] transition-colors hover:text-[var(--accent-medium)] capitalize"
                   style={{ color: "var(--text-muted)" }}
                 >
                   {content[`${lk}_s${i}_heading`] ?? def?.heading ?? "New Section"}
@@ -1284,7 +1304,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
                   <RemoveBtn onClick={() => deleteSection(i)} title="Remove section" />
                 </div>
               )}
-              <h2 className="text-xl font-light text-[var(--text)] mb-4 tracking-tight">
+              <h2 className="text-xl font-light text-[var(--text)] mb-4 tracking-tight capitalize">
                 <Editable as="span" contentKey={`${lk}_s${i}_heading`} fallback={def?.heading ?? "New Section"} />
               </h2>
               <div className="flex flex-col gap-4">
@@ -1387,15 +1407,20 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
             className="text-[14px] leading-relaxed mb-5"
             style={{ color: "var(--text)" }}
           />
-          {assignItems.length > 0 ? (
+          {orderedAssignItems.length > 0 ? (
             <ol className="flex flex-col gap-3">
-              {assignItems.map(({ i, fallback }, pos) => (
+              {orderedAssignItems.map(({ i, fallback }, pos) => (
                 <li key={i} className="group flex items-start gap-3 text-[14px]">
                   <span className="shrink-0 font-mono text-[12px] mt-[2px] w-5 text-right" style={{ color: "var(--accent-medium)" }}>
                     {pos + 1}.
                   </span>
                   <Editable as="span" contentKey={`${lk}_assign_${i}`} fallback={fallback} className="flex-1 leading-relaxed" style={{ color: "var(--text-muted)" }} />
-                  {canManage && <RemoveBtn onClick={() => deleteAssignItem(i)} title="Remove step" />}
+                  {canManage && (
+                    <span className="flex items-center gap-0.5 shrink-0">
+                      <MoveBtns onMove={(dir) => moveAssignItem(i, dir)} canUp={pos > 0} canDown={pos < orderedAssignItems.length - 1} />
+                      <RemoveBtn onClick={() => deleteAssignItem(i)} title="Remove step" />
+                    </span>
+                  )}
                 </li>
               ))}
             </ol>
@@ -1419,11 +1444,16 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
                 style={{ color: "var(--text-muted)" }}
               />
               <ul className="flex flex-col gap-3">
-                {assignItems.map(({ i, fallback }) => (
+                {orderedAssignItems.map(({ i, fallback }, pos) => (
                   <li key={i} className="group flex items-start gap-3 text-[14px]">
                     <span className="shrink-0 mt-[7px] w-1.5 h-1.5 rounded-full" style={{ background: "var(--accent-medium)" }} />
                     <Editable as="span" contentKey={`${lk}_assign_${i}`} fallback={fallback} className="flex-1 leading-relaxed" style={{ color: "var(--text-muted)" }} />
-                    {canManage && <RemoveBtn onClick={() => deleteAssignItem(i)} title="Remove task" />}
+                    {canManage && (
+                      <span className="flex items-center gap-0.5 shrink-0">
+                        <MoveBtns onMove={(dir) => moveAssignItem(i, dir)} canUp={pos > 0} canDown={pos < orderedAssignItems.length - 1} />
+                        <RemoveBtn onClick={() => deleteAssignItem(i)} title="Remove task" />
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
