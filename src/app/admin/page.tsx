@@ -40,6 +40,16 @@ const PERMISSIONS = [
     desc: 'Set a lesson or course to Published / Soon / Draft, and set a course\'s difficulty level. Controls what learners can see.',
   },
   {
+    key: "view_drafts",
+    label: "View Draft Lessons",
+    desc: "See draft/unpublished lessons and projects on granted courses and lessons, read-only. For assistants reviewing work in progress.",
+  },
+  {
+    key: "manage_access",
+    label: "Grant Lesson Access",
+    desc: "On a granted course: give or revoke other staff members' edit access to individual lessons in that course.",
+  },
+  {
     key: "edit_urls",
     label: "Edit Page URLs",
     desc: "Manually override a course or lesson URL slug. Titles still auto-sync the URL either way.",
@@ -119,6 +129,28 @@ export default function AdminPage() {
       }
     }
     updateContent("__perms_v2__", "1");
+  }, [loading, isAdmin, content, updateContent]);
+
+  // One-time migration v3: seed the Assistant role (draft viewer) and give
+  // professor-type roles (manage_curriculum) the new Grant Lesson Access and
+  // View Draft Lessons rights.
+  useEffect(() => {
+    if (loading || !isAdmin) return;
+    if (content["__perms_v3__"] === "1") return;
+    const current: string[] = parseJSON(content[ROLES_KEY], []);
+    if (!current.includes("Assistant")) {
+      updateContent(ROLES_KEY, JSON.stringify([...current, "Assistant"]));
+    }
+    if (!content[rolePermKey("Assistant")]) {
+      updateContent(rolePermKey("Assistant"), JSON.stringify({ view_drafts: true }));
+    }
+    for (const role of current) {
+      const perms = parseJSON<Record<string, boolean>>(content[rolePermKey(role)], {});
+      if (perms.manage_curriculum && perms.manage_access === undefined) {
+        updateContent(rolePermKey(role), JSON.stringify({ ...perms, manage_access: true, view_drafts: true }));
+      }
+    }
+    updateContent("__perms_v3__", "1");
   }, [loading, isAdmin, content, updateContent]);
 
   if (loading || !canAccess) return null;

@@ -8,7 +8,7 @@ import { ArrowRight, Plus, X, AlertTriangle } from "lucide-react";
 import { Editable } from "@/components/editable-text";
 import { useContentContext } from "@/components/content-provider";
 import { useAuth } from "@/components/auth-provider";
-import { usePermissions, evalPermission } from "@/hooks/use-permissions";
+import { usePermissions, canSeeDrafts } from "@/hooks/use-permissions";
 import {
   getCourseKeys,
   getCourseSlug,
@@ -90,12 +90,10 @@ function CourseCard({
   const { content } = useContentContext();
   const { profile } = useAuth();
   const { can } = usePermissions();
-  const canPublish = can("manage_lessons");
   const canManageCourses = can("manage_courses");
-  // Granted to edit THIS course (site-scoped page can't see it via can()) —
-  // lets a professor open their course even while it's still "Soon".
-  const canEditThis = evalPermission(profile, content, { type: "course", courseId }, "edit_content");
-  const canOpenUnpublished = canPublish || canEditThis;
+  // Site-scoped page can't see per-course grants via can(); check directly so a
+  // professor/assistant with draft-view rights can open their "Soon" course.
+  const canOpenUnpublished = canSeeDrafts(profile, content, { type: "course", courseId });
 
   const { titleKey, levelKey, descKey } = getCourseKeys(courseId);
   const courseSlug = getCourseSlug(courseId, content);

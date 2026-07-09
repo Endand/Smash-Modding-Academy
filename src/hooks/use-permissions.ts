@@ -11,6 +11,8 @@ export type Permission =
   | "manage_sections"
   | "manage_curriculum"
   | "manage_lessons"
+  | "view_drafts"
+  | "manage_access"
   | "edit_urls"
   | "edit_authors"
   | "manage_courses"
@@ -86,6 +88,20 @@ export function evalPermission(
   if (!rolePerms[perm]) return false;
 
   return hasScopeAccess(profile?.username, content, scope);
+}
+
+// Can this user see unpublished (draft / soon) content in this scope?
+// Publishers and admins always can; otherwise it needs the view_drafts right.
+// (edit_content alone no longer reveals drafts — that's the assistant/editor split.)
+export function canSeeDrafts(
+  profile: Profile | null,
+  content: Record<string, string>,
+  scope: EditScope
+): boolean {
+  return (
+    evalPermission(profile, content, scope, "manage_lessons") ||
+    evalPermission(profile, content, scope, "view_drafts")
+  );
 }
 
 export function usePermissions(scopeOverride?: EditScope) {

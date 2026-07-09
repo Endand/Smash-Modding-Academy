@@ -8,7 +8,8 @@ import { ChevronLeft, ChevronRight, ChevronUp, Plus, X, ChevronDown, Code, Image
 import { useProgress } from "@/components/progress-provider";
 import { Editable } from "@/components/editable-text";
 import { useContentContext } from "@/components/content-provider";
-import { usePermissions, EditScopeProvider, lessonAclKey } from "@/hooks/use-permissions";
+import { usePermissions, EditScopeProvider, evalPermission, lessonAclKey, type EditScope } from "@/hooks/use-permissions";
+import { useAuth } from "@/components/auth-provider";
 import { useCourseStructure, getEffectiveStatus, parseJSON } from "@/hooks/use-course-structure";
 import { getStaticLesson } from "@/lib/courses/foundations-data";
 import { getCourseKeys, getCourseSlug, slugFromTitle, PROJECT_ICONS } from "@/lib/courses/course-utils";
@@ -819,15 +820,21 @@ function AuthorCredits({ lk, lastUpdated }: { lk: string; lastUpdated: string | 
 // ── Edit-access grants (admin only) ───────────────────────────────────────────
 
 export function EditAccessManager({
-  aclKey, title, hint,
+  aclKey, title, hint, grantScope,
 }: {
   aclKey: string;
   title: string;
   hint: string;
+  // When set, non-admins holding manage_access in this scope (e.g. a professor
+  // granted the course) can also manage the list. Omitted → admins only.
+  grantScope?: EditScope;
 }) {
   const { content, updateContent } = useContentContext();
   const { isAdmin } = usePermissions();
-  if (!isAdmin) return null;
+  const { profile } = useAuth();
+  const canGrant =
+    isAdmin || (!!grantScope && evalPermission(profile, content, grantScope, "manage_access"));
+  if (!canGrant) return null;
 
   let users: string[] = [];
   try { users = JSON.parse(content[aclKey] ?? "[]"); } catch { users = []; }
@@ -958,6 +965,9 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
   const canEdit = can("edit_content");
   const canManage = can("manage_sections");
   const canPublish = can("manage_lessons");
+  // Seeing a draft/soon lesson needs publish or view_drafts rights — edit_content
+  // alone does not (so editors can't reach drafts, assistants can).
+  const canViewDrafts = canPublish || can("view_drafts");
   const { allLessons } = useCourseStructure(courseId);
 
   // Static lesson data for fallbacks (only exists for foundations lessons)
@@ -1155,9 +1165,9 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
     updateContent(`${lk}_res_order`, JSON.stringify(next));
   };
 
-  // ── "Coming Soon" gate — granted editors/professors bypass it ────────────
+  // ── "Coming Soon" gate — only draft-viewers (assistants/professors) pass ──
   const courseDeleted = content[`course_${courseId}_deleted`] === "1";
-  if ((status !== "published" || courseDeleted) && !canPublish && !canEdit) {
+  if ((status !== "published" || courseDeleted) && !canViewDrafts) {
     return (
       <div className="max-w-2xl mx-auto px-6 md:px-10 py-20 text-center">
         <p className="font-mono text-[11px] uppercase tracking-widest text-[var(--text-muted)] mb-4">
@@ -1547,11 +1557,13 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
       </div>
       )}
 
-      {/* Edit access — admin grants this lesson to a professor/editor */}
+      {/* Edit access — admins and course-granted professors can grant this lesson
+          to editors/assistants; the grant scope is the whole course. */}
       <EditAccessManager
         aclKey={lessonAclKey(lk)}
         title="Edit access — this lesson"
-        hint="Professors and editors listed here can edit this lesson. Grant a whole course instead from the course page."
+        hint="People listed here can work on this lesson (per their role). Admins — and professors granted this course — can add editors and assistants."
+        grantScope={{ type: "course", courseId }}
       />
 
       {/* Author credits */}

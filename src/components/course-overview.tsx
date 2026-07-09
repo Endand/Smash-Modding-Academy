@@ -10,7 +10,7 @@ import { EditableIcon } from "@/components/editable-icon";
 import { useContentContext } from "@/components/content-provider";
 import { useAuth } from "@/components/auth-provider";
 import { EditAccessManager } from "@/components/lesson-content";
-import { usePermissions, EditScopeProvider, evalPermission, courseAclKey } from "@/hooks/use-permissions";
+import { usePermissions, EditScopeProvider, canSeeDrafts, courseAclKey } from "@/hooks/use-permissions";
 import {
   useCourseStructure,
   getEffectiveStatus,
@@ -117,10 +117,9 @@ function LessonRow({
   const { can } = usePermissions();
   const canCurriculum = can("manage_curriculum");
   const canPublish = can("manage_lessons");
-  // Granted to edit THIS lesson (directly or via its course) — lets them reach
-  // it even while it's draft/soon.
-  const canEditThis = evalPermission(profile, content, { type: "lesson", courseId, lessonKey: lesson.lessonKey }, "edit_content");
-  const canSeeUnpublished = canPublish || canEditThis;
+  // Assistants/professors can reach a granted lesson even in draft/soon;
+  // editors (edit-only, no view_drafts) cannot.
+  const canSeeUnpublished = canSeeDrafts(profile, content, { type: "lesson", courseId, lessonKey: lesson.lessonKey });
   const { completed } = useProgress();
   const iconName = content[`${lesson.lessonKey}_icon`] ?? lesson.iconFallback;
   const isProject = PROJECT_ICONS.has(iconName);
@@ -320,6 +319,7 @@ export function CourseOverview({ courseId }: { courseId: string }) {
   const canEdit = can("edit_content");
   const canCurriculum = can("manage_curriculum");
   const canPublish = can("manage_lessons");
+  const canViewDrafts = canPublish || can("view_drafts");
   const canEditUrls = can("edit_urls");
   const { sections, allLessons } = useCourseStructure(courseId);
   const { completed, signedIn } = useProgress();
@@ -392,7 +392,7 @@ export function CourseOverview({ courseId }: { courseId: string }) {
 
   // Non-editors see "Coming Soon"; granted editors/professors bypass it
   const isDeleted = content[`course_${courseId}_deleted`] === "1";
-  if ((courseStatus !== "available" || isDeleted) && !canPublish && !canEdit) {
+  if ((courseStatus !== "available" || isDeleted) && !canViewDrafts) {
     return (
       <div className="max-w-2xl mx-auto px-6 py-20 text-center">
         <p className="font-mono text-[11px] uppercase tracking-widest text-[var(--text-muted)] mb-4">Coming soon</p>

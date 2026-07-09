@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronDown, BookOpen, Wrench, Check } from "lucide-react";
 import { useContentContext } from "@/components/content-provider";
 import { useAuth } from "@/components/auth-provider";
-import { usePermissions, evalPermission } from "@/hooks/use-permissions";
+import { usePermissions, canSeeDrafts } from "@/hooks/use-permissions";
 import { useProgress } from "@/components/progress-provider";
 import { useCourseStructure, getEffectiveStatus } from "@/hooks/use-course-structure";
 import { getCourseKeys, getCourseSlug, PROJECT_ICONS } from "@/lib/courses/course-utils";
@@ -52,9 +52,9 @@ export function LessonSidebar({ currentSlug, courseId = "foundations" }: Sidebar
                 const isProject = PROJECT_ICONS.has(iconName);
                 const isActive = lesson.slug === currentSlug;
                 const status = getEffectiveStatus(lesson.lessonKey, lesson.hasStaticContent, content);
-                // Granted editors/professors can reach their lesson even in draft/soon
-                const canEditThis = evalPermission(profile, content, { type: "lesson", courseId, lessonKey: lesson.lessonKey }, "edit_content");
-                const canSeeUnpublished = canPublish || canEditThis;
+                // Assistants/professors (view_drafts or publish rights) can reach
+                // their granted lesson even in draft/soon; editors cannot.
+                const canSeeUnpublished = canSeeDrafts(profile, content, { type: "lesson", courseId, lessonKey: lesson.lessonKey });
                 const isAccessible = status === "published" || canSeeUnpublished;
                 const isComplete = completed.has(lesson.lessonKey);
 
