@@ -101,7 +101,7 @@ export function CurriculumPreview() {
                   />
                   {!isAvailable && (
                     <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-2 py-0.5 rounded-[var(--radius-tag)] border border-[var(--border-color)]">
-                      Coming Soon
+                      {status === "draft" ? "Draft" : "Coming Soon"}
                     </span>
                   )}
                 </div>

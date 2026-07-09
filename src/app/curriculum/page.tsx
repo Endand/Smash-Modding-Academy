@@ -139,7 +139,7 @@ function CourseCard({
           )}
           {!isAvailable && !isDeleted && canAccessCourse && (
             <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-[var(--radius-tag)] shrink-0" style={{ color: "var(--text-muted)", border: "1px solid var(--border-strong)" }}>
-              Soon
+              {status === "draft" ? "Draft" : "Soon"}
             </span>
           )}
         </div>
