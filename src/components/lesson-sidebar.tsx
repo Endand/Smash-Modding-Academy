@@ -78,7 +78,7 @@ export function LessonSidebar({ currentSlug, courseId = "foundations" }: Sidebar
                     <span className="shrink-0" style={{ color: isProject ? "var(--accent-medium)" : "inherit" }}>
                       {isProject ? <Wrench size={11} strokeWidth={1.5} /> : <BookOpen size={11} strokeWidth={1.5} />}
                     </span>
-                    <span className="leading-snug flex-1">{title}</span>
+                    <span className="leading-snug flex-1 capitalize">{title}</span>
                     {isComplete && (
                       <Check size={11} strokeWidth={2.5} className="shrink-0" style={{ color: "var(--accent-medium)" }} aria-label="Completed" />
                     )}

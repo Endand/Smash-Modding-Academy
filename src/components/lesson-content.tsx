@@ -965,9 +965,10 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
   const canEdit = can("edit_content");
   const canManage = can("manage_sections");
   const canPublish = can("manage_lessons");
-  // Seeing a draft/soon lesson needs publish or view_drafts rights — edit_content
-  // alone does not (so editors can't reach drafts, assistants can).
-  const canViewDrafts = canPublish || can("view_drafts");
+  // Seeing a draft/soon lesson: publish rights, view_drafts (assistants), or
+  // edit access to THIS lesson (editors granted it). Scoping keeps editors from
+  // reaching drafts they aren't granted.
+  const canViewDrafts = canPublish || can("view_drafts") || canEdit;
   const { allLessons } = useCourseStructure(courseId);
 
   // Static lesson data for fallbacks (only exists for foundations lessons)
@@ -1201,7 +1202,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
 
       {/* Title + status badge */}
       <div className="flex items-start gap-3 mb-5">
-        <h1 className="text-3xl font-extralight tracking-wide text-[var(--text)] leading-tight flex-1">
+        <h1 className="text-3xl font-extralight tracking-wide text-[var(--text)] leading-tight flex-1 capitalize">
           <Editable as="span" contentKey={`${lk}_title`} fallback={staticLesson?.titleFallback ?? "Untitled Lesson"} />
         </h1>
         <LessonStatusBadge lessonKey={lk} hasStaticContent={!!d} />

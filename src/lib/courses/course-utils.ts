@@ -45,14 +45,17 @@ export function slugFromTitle(title: string): string {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "course";
 }
 
-// "available" = public; "soon" = hidden from non-admins
-const DEFAULT_STATUS: Record<string, "available" | "soon"> = {
+// "available" = public; "soon" = public teaser (not clickable); "draft" =
+// hidden from everyone without edit access to the course or a lesson in it.
+export type CourseStatus = "available" | "soon" | "draft";
+
+const DEFAULT_STATUS: Record<string, CourseStatus> = {
   foundations: "available",
 };
 
-export function getCourseStatus(courseId: string, content: Record<string, string>): "available" | "soon" {
+export function getCourseStatus(courseId: string, content: Record<string, string>): CourseStatus {
   const stored = content[`course_${courseId}_status`];
-  if (stored === "available" || stored === "soon") return stored;
+  if (stored === "available" || stored === "soon" || stored === "draft") return stored;
   return DEFAULT_STATUS[courseId] ?? "soon";
 }
 

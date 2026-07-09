@@ -91,8 +91,9 @@ export function evalPermission(
 }
 
 // Can this user see unpublished (draft / soon) content in this scope?
-// Publishers and admins always can; otherwise it needs the view_drafts right.
-// (edit_content alone no longer reveals drafts — that's the assistant/editor split.)
+// Anyone who can act on it here — publish, view drafts, or edit — may see it.
+// Since permissions are scoped, an editor only gains this on lessons they're
+// granted, so they still never see drafts they have no access to.
 export function canSeeDrafts(
   profile: Profile | null,
   content: Record<string, string>,
@@ -100,8 +101,26 @@ export function canSeeDrafts(
 ): boolean {
   return (
     evalPermission(profile, content, scope, "manage_lessons") ||
-    evalPermission(profile, content, scope, "view_drafts")
+    evalPermission(profile, content, scope, "view_drafts") ||
+    evalPermission(profile, content, scope, "edit_content")
   );
+}
+
+// Does the user have edit access to this course, or to any lesson inside it?
+// Used to reveal a draft/soon course to people granted content within it.
+export function hasAnyEditAccessInCourse(
+  username: string | undefined,
+  content: Record<string, string>,
+  courseId: string,
+  lessonKeys: string[]
+): boolean {
+  if (!username) return false;
+  const inAcl = (key: string) => {
+    try { return (JSON.parse(content[key] ?? "[]") as string[]).includes(username); }
+    catch { return false; }
+  };
+  if (inAcl(courseAclKey(courseId))) return true;
+  return lessonKeys.some((lk) => inAcl(lessonAclKey(lk)));
 }
 
 export function usePermissions(scopeOverride?: EditScope) {

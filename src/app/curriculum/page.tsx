@@ -8,7 +8,8 @@ import { ArrowRight, Plus, X, AlertTriangle } from "lucide-react";
 import { Editable } from "@/components/editable-text";
 import { useContentContext } from "@/components/content-provider";
 import { useAuth } from "@/components/auth-provider";
-import { usePermissions, canSeeDrafts } from "@/hooks/use-permissions";
+import { usePermissions, hasAnyEditAccessInCourse } from "@/hooks/use-permissions";
+import { buildCourseStructure } from "@/lib/courses/course-structure";
 import {
   getCourseKeys,
   getCourseSlug,
@@ -89,11 +90,12 @@ function CourseCard({
 }) {
   const { content } = useContentContext();
   const { profile } = useAuth();
-  const { can } = usePermissions();
+  const { can, isAdmin } = usePermissions();
   const canManageCourses = can("manage_courses");
-  // Site-scoped page can't see per-course grants via can(); check directly so a
-  // professor/assistant with draft-view rights can open their "Soon" course.
-  const canOpenUnpublished = canSeeDrafts(profile, content, { type: "course", courseId });
+  // Site-scoped page can't see grants via can(); check directly. Access = admin,
+  // or granted this course or any lesson in it.
+  const lessonKeys = buildCourseStructure(courseId, content).allLessons.map((l) => l.lessonKey);
+  const canAccessCourse = isAdmin || hasAnyEditAccessInCourse(profile?.username, content, courseId, lessonKeys);
 
   const { titleKey, levelKey, descKey } = getCourseKeys(courseId);
   const courseSlug = getCourseSlug(courseId, content);
@@ -104,8 +106,10 @@ function CourseCard({
   const level = content[levelKey] ?? "Beginner";
   const desc  = content[descKey]  ?? "Description of this course.";
 
-  // Only course-managers see removed courses; "soon" courses stay visible but dimmed
+  // Only course-managers see removed courses; draft courses hide from anyone
+  // without access; "soon" stays a public teaser.
   if (isDeleted && !canManageCourses) return null;
+  if (status === "draft" && !canAccessCourse) return null;
 
   const isAvailable = status === "available";
   const href = `/courses/${courseSlug}`;
@@ -133,7 +137,7 @@ function CourseCard({
               Removed
             </span>
           )}
-          {!isAvailable && !isDeleted && canOpenUnpublished && (
+          {!isAvailable && !isDeleted && canAccessCourse && (
             <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-[var(--radius-tag)] shrink-0" style={{ color: "var(--text-muted)", border: "1px solid var(--border-strong)" }}>
               Soon
             </span>
@@ -159,7 +163,7 @@ function CourseCard({
     </div>
   );
 
-  if ((isAvailable || canOpenUnpublished) && !isDeleted) {
+  if ((isAvailable || canAccessCourse) && !isDeleted) {
     return <Link href={href} className="block group">{cardInner}</Link>;
   }
   return <div className="group">{cardInner}</div>;

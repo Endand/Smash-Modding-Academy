@@ -10,7 +10,7 @@ import { EditableIcon } from "@/components/editable-icon";
 import { useContentContext } from "@/components/content-provider";
 import { useAuth } from "@/components/auth-provider";
 import { EditAccessManager } from "@/components/lesson-content";
-import { usePermissions, EditScopeProvider, canSeeDrafts, courseAclKey } from "@/hooks/use-permissions";
+import { usePermissions, EditScopeProvider, canSeeDrafts, hasAnyEditAccessInCourse, courseAclKey } from "@/hooks/use-permissions";
 import {
   useCourseStructure,
   getEffectiveStatus,
@@ -143,7 +143,7 @@ function LessonRow({
         as="span"
         contentKey={`${lesson.lessonKey}_title`}
         fallback={lesson.titleFallback}
-        className="flex-1 text-sm"
+        className="flex-1 text-sm capitalize"
         style={{ color: "var(--text)" }}
       />
       {isProject && (
@@ -316,12 +316,15 @@ export function CourseOverview({ courseId }: { courseId: string }) {
   // Permissions scoped to THIS course — a role-holder can act only if an admin
   // granted them this course.
   const { can, isAdmin } = usePermissions({ type: "course", courseId });
+  const { profile } = useAuth();
   const canEdit = can("edit_content");
   const canCurriculum = can("manage_curriculum");
   const canPublish = can("manage_lessons");
-  const canViewDrafts = canPublish || can("view_drafts");
   const canEditUrls = can("edit_urls");
   const { sections, allLessons } = useCourseStructure(courseId);
+  // Can this user reach this course at all? Admins; anyone granted the course or
+  // any lesson in it. Lets a lesson-granted editor open a draft/soon course.
+  const canAccessCourse = isAdmin || hasAnyEditAccessInCourse(profile?.username, content, courseId, allLessons.map((l) => l.lessonKey));
   const { completed, signedIn } = useProgress();
   const { titleKey, descKey } = getCourseKeys(courseId);
   const courseSlug = getCourseSlug(courseId, content);
@@ -392,7 +395,7 @@ export function CourseOverview({ courseId }: { courseId: string }) {
 
   // Non-editors see "Coming Soon"; granted editors/professors bypass it
   const isDeleted = content[`course_${courseId}_deleted`] === "1";
-  if ((courseStatus !== "available" || isDeleted) && !canViewDrafts) {
+  if ((courseStatus !== "available" || isDeleted) && !canAccessCourse) {
     return (
       <div className="max-w-2xl mx-auto px-6 py-20 text-center">
         <p className="font-mono text-[11px] uppercase tracking-widest text-[var(--text-muted)] mb-4">Coming soon</p>
@@ -428,6 +431,7 @@ export function CourseOverview({ courseId }: { courseId: string }) {
               >
                 <option value="available">Published</option>
                 <option value="soon">Soon</option>
+                <option value="draft">Draft</option>
               </select>
               <ChevronDown size={8} className="absolute right-1 pointer-events-none" style={{ color: courseStatus === "available" ? "var(--accent-medium)" : "var(--text-muted)" }} />
             </div>
