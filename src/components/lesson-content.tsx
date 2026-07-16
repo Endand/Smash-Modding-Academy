@@ -394,7 +394,7 @@ function BlockRenderer({
   const caption = content[`${prefix}_caption`] ?? "";
 
   const controls = canManage ? (
-    <div className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center gap-0.5">
+    <div className="absolute right-full top-0 mr-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex flex-col items-center gap-0.5">
       <MoveBtns onMove={onMove} canUp={canMoveUp} canDown={canMoveDown} />
       <RemoveBtn onClick={onRemove} title={`Remove ${block.type} block`} />
     </div>
@@ -1329,7 +1329,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
           return (
             <section key={i} id={`section-${i}`} className="group relative" style={{ scrollMarginTop: "5rem" }}>
               {canManage && (
-                <div className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center gap-0.5">
+                <div className="absolute right-full top-0 mr-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex flex-col items-center gap-0.5">
                   <MoveBtns onMove={(dir) => moveSection(i, dir)} canUp={secIdx > 0} canDown={secIdx < orderedSections.length - 1} />
                   <RemoveBtn onClick={() => deleteSection(i)} title="Remove section" />
                 </div>
@@ -1369,7 +1369,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
                   return (
                     <div key={itemId} className="group/p relative">
                       {canManage && (
-                        <div className="absolute -top-1 -right-1 opacity-0 group-hover/p:opacity-100 transition-opacity z-10 flex items-center gap-0.5">
+                        <div className="absolute right-full top-0 mr-1.5 opacity-0 group-hover/p:opacity-100 transition-opacity z-10 flex flex-col items-center gap-0.5">
                           <MoveBtns onMove={(dir) => moveItem(itemId, dir)} canUp={canUp} canDown={canDown} />
                           <RemoveBtn onClick={() => deleteParag(i, j)} title="Remove paragraph" />
                         </div>
@@ -1396,7 +1396,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
               {(def?.note || content[`${lk}_s${i}_note`]) && content[`${lk}_s${i}_note_deleted`] !== "1" && (
                 <div className="group/note relative mt-5">
                   {canManage && (
-                    <div className="absolute -top-1 -right-1 opacity-0 group-hover/note:opacity-100 transition-opacity z-10">
+                    <div className="absolute right-full top-0 mr-1.5 opacity-0 group-hover/note:opacity-100 transition-opacity z-10">
                       <RemoveBtn onClick={() => updateContent(`${lk}_s${i}_note_deleted`, "1")} title="Remove callout" />
                     </div>
                   )}
@@ -1506,7 +1506,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
             {orderedKCItems.map(({ i, defQ, defA }, displayIdx) => (
               <div key={i} className="group relative">
                 {canManage && (
-                  <div className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center gap-0.5">
+                  <div className="absolute right-full top-0 mr-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex flex-col items-center gap-0.5">
                     <MoveBtns onMove={(dir) => moveKCItem(i, dir)} canUp={displayIdx > 0} canDown={displayIdx < orderedKCItems.length - 1} />
                     <RemoveBtn onClick={() => deleteKCItem(i)} title="Remove question" />
                   </div>

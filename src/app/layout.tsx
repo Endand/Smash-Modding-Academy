@@ -27,6 +27,26 @@ export const metadata: Metadata = {
   },
 };
 
+// PostgREST caps a single select at 1000 rows, so page through everything —
+// otherwise courses whose keys sort last silently lose their saved content.
+async function fetchAllContent(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<{ key: string; value: string }[]> {
+  const pageSize = 1000;
+  const all: { key: string; value: string }[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("site_content")
+      .select("key, value")
+      .order("key", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error || !data || data.length === 0) break;
+    all.push(...(data as { key: string; value: string }[]));
+    if (data.length < pageSize) break;
+  }
+  return all;
+}
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -36,9 +56,9 @@ export default async function RootLayout({
 
   // Fetch auth and content in parallel — this runs server-side so data is
   // baked into the initial HTML with no client-side loading flash.
-  const [{ data: { user } }, { data: contentRows }] = await Promise.all([
+  const [{ data: { user } }, contentRows] = await Promise.all([
     supabase.auth.getUser(),
-    supabase.from("site_content").select("key, value"),
+    fetchAllContent(supabase),
   ]);
 
   let initialProfile: Profile | null = null;
