@@ -249,10 +249,10 @@ export default function AdminPage() {
                         <button
                           onClick={() => setPendingRemoveRole(role)}
                           title={`Remove ${role} role`}
-                          className="opacity-40 hover:opacity-100 transition-opacity cursor-pointer"
-                          style={{ color: "var(--text-muted)" }}
+                          className="opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                          style={{ color: "#ed4245" }}
                         >
-                          <X size={11} />
+                          <X size={12} strokeWidth={2.5} />
                         </button>
                       </div>
                     </th>

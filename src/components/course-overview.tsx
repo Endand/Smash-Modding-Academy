@@ -178,10 +178,10 @@ function LessonRow({
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
             title="Remove lesson"
-            className="w-4 h-4 rounded-full flex items-center justify-center cursor-pointer"
-            style={{ background: "var(--surface-raised)", border: "1px solid var(--border-strong)", color: "var(--text-muted)" }}
+            className="w-4 h-4 rounded-full flex items-center justify-center cursor-pointer hover:brightness-110"
+            style={{ background: "#ed4245", border: "1px solid #ed4245", color: "#fff" }}
           >
-            <X size={9} />
+            <X size={10} strokeWidth={2.5} />
           </button>
         </span>
       )}
@@ -522,10 +522,10 @@ export function CourseOverview({ courseId }: { courseId: string }) {
                   <button
                     onClick={() => removeSection(section)}
                     title="Remove section"
-                    className="w-4 h-4 rounded-full flex items-center justify-center cursor-pointer"
-                    style={{ background: "var(--surface-raised)", border: "1px solid var(--border-strong)", color: "var(--text-muted)" }}
+                    className="w-4 h-4 rounded-full flex items-center justify-center cursor-pointer hover:brightness-110"
+                    style={{ background: "#ed4245", border: "1px solid #ed4245", color: "#fff" }}
                   >
-                    <X size={9} />
+                    <X size={10} strokeWidth={2.5} />
                   </button>
                 </span>
               )}

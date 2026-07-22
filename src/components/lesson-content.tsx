@@ -833,9 +833,10 @@ function AuthorCredits({ lk, lastUpdated }: { lk: string; lastUpdated: string | 
             <button
               onClick={() => updateContent(`${lk}_author`, "")}
               title="Remove author"
-              className="cursor-pointer opacity-40 hover:opacity-100 transition-opacity"
+              className="cursor-pointer opacity-70 hover:opacity-100 transition-opacity"
+              style={{ color: "#ed4245" }}
             >
-              <X size={10} />
+              <X size={11} strokeWidth={2.5} />
             </button>
           )}
           {canEditAuthors && !author && (
@@ -855,9 +856,10 @@ function AuthorCredits({ lk, lastUpdated }: { lk: string; lastUpdated: string | 
                   <button
                     onClick={() => saveEditors(editors.filter((x) => x !== e))}
                     title="Remove editor"
-                    className="cursor-pointer opacity-40 hover:opacity-100 transition-opacity"
+                    className="cursor-pointer opacity-70 hover:opacity-100 transition-opacity"
+                    style={{ color: "#ed4245" }}
                   >
-                    <X size={10} />
+                    <X size={11} strokeWidth={2.5} />
                   </button>
                 </span>
               ))}
@@ -924,8 +926,8 @@ export function EditAccessManager({
             style={{ border: "1px solid var(--accent-medium)", color: "var(--accent-medium)" }}
           >
             @{u}
-            <button onClick={() => save(users.filter((x) => x !== u))} title="Revoke access" className="cursor-pointer opacity-60 hover:opacity-100 transition-opacity">
-              <X size={10} />
+            <button onClick={() => save(users.filter((x) => x !== u))} title="Revoke access" className="cursor-pointer opacity-70 hover:opacity-100 transition-opacity" style={{ color: "#ed4245" }}>
+              <X size={11} strokeWidth={2.5} />
             </button>
           </span>
         ))}
