@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ChevronLeft, ChevronRight, ChevronUp, Plus, X, ChevronDown, Code, Image as ImageIcon, Quote, Check, Copy, Lock, Eye, Pencil, Video } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronUp, Plus, X, ChevronDown, Code, Image as ImageIcon, Quote, Check, Copy, Lock, Eye, Pencil, Video, Clock } from "lucide-react";
 import { useProgress } from "@/components/progress-provider";
 import { Editable } from "@/components/editable-text";
 import { useContentContext } from "@/components/content-provider";
@@ -17,6 +17,7 @@ import { replaceSlugMapEntry } from "@/lib/courses/slug-sync";
 import { renderInline } from "@/lib/inline-markdown";
 import { PreviewLinkBtn } from "@/components/preview-link-btn";
 import { hasPreviewGrant, lessonPreviewKey, withPreview } from "@/lib/preview-token";
+import { PendingChanges } from "@/components/pending-changes";
 
 // ── Shared admin UI ───────────────────────────────────────────────────────────
 
@@ -1064,6 +1065,23 @@ function LessonStatusBadge({ lessonKey, hasStaticContent }: { lessonKey: string;
   );
 }
 
+// Tells an editor their work is queued rather than live — without it, an edit
+// that looks applied (it is, for them) would seem to have published itself.
+export function MyPendingNotice({ prefix }: { prefix: string }) {
+  const { pending } = useContentContext();
+  const mine = Object.keys(pending).filter((k) => k.startsWith(prefix));
+  if (mine.length === 0) return null;
+  return (
+    <div
+      className="mb-8 flex items-center gap-2 px-4 py-2.5 rounded-[var(--radius-card)] font-mono text-[10px] uppercase tracking-widest"
+      style={{ border: "1px solid #f0b232", color: "#f0b232", background: "var(--surface)" }}
+    >
+      <Clock size={12} className="shrink-0" />
+      {mine.length} of your change{mine.length === 1 ? "" : "s"} {mine.length === 1 ? "is" : "are"} waiting for approval — only you can see {mine.length === 1 ? "it" : "them"} until then
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface Props {
@@ -1374,6 +1392,10 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
           </div>
         )}
       </div>
+
+      {/* Approval queue: reviewers see pending edits, editors see their own status */}
+      <PendingChanges scope={{ type: "lesson", courseId, lessonKey }} />
+      <MyPendingNotice prefix={lk} />
 
       {/* Title + status badge */}
       <div className="flex items-start gap-3 mb-5">

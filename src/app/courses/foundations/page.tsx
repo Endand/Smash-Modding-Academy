@@ -6,6 +6,7 @@ import { CourseOverview } from "@/components/course-overview";
 import { createClient } from "@/lib/supabase/server";
 import { PreviewTokenProvider } from "@/hooks/use-permissions";
 import { readPreviewParam } from "@/lib/preview-token";
+import { RevisionGate } from "@/components/revision-gate";
 
 // If the course URL was renamed (course_foundations_slug set to something
 // else), this legacy static route stops resolving.
@@ -47,7 +48,9 @@ export default async function FoundationsPage({
       <Nav />
       <PreviewTokenProvider token={previewToken}>
         <main className="pt-14 min-h-screen">
-          <CourseOverview courseId="foundations" />
+          <RevisionGate scope={{ type: "course", courseId: "foundations" }}>
+            <CourseOverview courseId="foundations" />
+          </RevisionGate>
         </main>
       </PreviewTokenProvider>
       <Footer />

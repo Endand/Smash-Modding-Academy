@@ -7,6 +7,7 @@ import { CourseOverview } from "@/components/course-overview";
 import { getCourseKeys } from "@/lib/courses/course-utils";
 import { PreviewTokenProvider } from "@/hooks/use-permissions";
 import { readPreviewParam } from "@/lib/preview-token";
+import { RevisionGate } from "@/components/revision-gate";
 
 // Static slug → courseId for seed courses that don't have their own page files.
 // "foundations" has a static page that takes priority and never hits this route.
@@ -81,7 +82,9 @@ export default async function CoursePage({ params, searchParams }: Props) {
       <Nav />
       <PreviewTokenProvider token={previewToken}>
         <main className="pt-14 min-h-screen">
-          <CourseOverview courseId={courseId} />
+          <RevisionGate scope={{ type: "course", courseId }}>
+            <CourseOverview courseId={courseId} />
+          </RevisionGate>
         </main>
       </PreviewTokenProvider>
       <Footer />

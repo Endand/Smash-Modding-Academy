@@ -41,6 +41,11 @@ const PERMISSIONS = [
     desc: 'Set a lesson or course to Published / Soon / Draft, and set a course\'s difficulty level. Controls what learners can see.',
   },
   {
+    key: "approve_edits",
+    label: "Approve Edits",
+    desc: "Publish directly instead of queueing for review, and approve or reject changes proposed by people who lack this right. Anyone without it has their edits held for approval on granted lessons and courses.",
+  },
+  {
     key: "view_drafts",
     label: "View Draft Lessons",
     desc: "See draft/unpublished lessons and projects on granted courses and lessons, read-only. For assistants reviewing work in progress.",
@@ -130,6 +135,24 @@ export default function AdminPage() {
       }
     }
     updateContent("__perms_v2__", "1");
+  }, [loading, isAdmin, content, updateContent]);
+
+  // One-time migration v4: edits now queue for approval unless a role holds
+  // approve_edits. Grant it to the reviewer-type roles — anyone who can already
+  // publish (manage_lessons) or view drafts (assistants) — so existing staff
+  // keep working exactly as before. Plain editors get held for review.
+  useEffect(() => {
+    if (loading || !isAdmin) return;
+    if (content["__perms_v4__"] === "1") return;
+    const current: string[] = parseJSON(content[ROLES_KEY], []);
+    for (const role of current) {
+      const perms = parseJSON<Record<string, boolean>>(content[rolePermKey(role)], {});
+      if (perms.approve_edits !== undefined) continue;
+      if (perms.manage_lessons || perms.view_drafts) {
+        updateContent(rolePermKey(role), JSON.stringify({ ...perms, approve_edits: true }));
+      }
+    }
+    updateContent("__perms_v4__", "1");
   }, [loading, isAdmin, content, updateContent]);
 
   // One-time migration v3: seed the Assistant role (draft viewer) and give

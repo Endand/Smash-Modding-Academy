@@ -6,6 +6,7 @@ import { LessonSidebar } from "@/components/lesson-sidebar";
 import { LessonContent } from "@/components/lesson-content";
 import { EditScopeProvider, PreviewTokenProvider } from "@/hooks/use-permissions";
 import { readPreviewParam } from "@/lib/preview-token";
+import { RevisionGate } from "@/components/revision-gate";
 import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 
@@ -110,7 +111,9 @@ export default async function LessonPage({ params, searchParams }: Props) {
       <div className="pt-14 min-h-screen flex flex-col md:flex-row">
         <LessonSidebar currentSlug={slug} courseId="foundations" />
         <main className="flex-1 min-w-0 overflow-x-clip">
-          <LessonContent lessonKey={lessonKey} slug={slug} courseId="foundations" lastUpdated={lastUpdated} />
+          <RevisionGate scope={{ type: "lesson", courseId: "foundations", lessonKey }}>
+            <LessonContent lessonKey={lessonKey} slug={slug} courseId="foundations" lastUpdated={lastUpdated} />
+          </RevisionGate>
         </main>
       </div>
       </EditScopeProvider>

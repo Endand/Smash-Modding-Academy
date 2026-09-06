@@ -9,7 +9,8 @@ import { Editable } from "@/components/editable-text";
 import { EditableIcon } from "@/components/editable-icon";
 import { useContentContext } from "@/components/content-provider";
 import { useAuth } from "@/components/auth-provider";
-import { EditAccessManager, RemoveBtn } from "@/components/lesson-content";
+import { EditAccessManager, RemoveBtn, MyPendingNotice } from "@/components/lesson-content";
+import { PendingChanges } from "@/components/pending-changes";
 import { PreviewLinkBtn } from "@/components/preview-link-btn";
 import { hasPreviewGrant, coursePreviewKey, withPreview } from "@/lib/preview-token";
 import { usePermissions, EditScopeProvider, canSeeDrafts, hasAnyEditAccessInCourse, courseAclKey } from "@/hooks/use-permissions";
@@ -475,6 +476,10 @@ export function CourseOverview({ courseId }: { courseId: string }) {
   return (
     <EditScopeProvider scope={{ type: "course", courseId }}>
     <div className="max-w-3xl mx-auto px-6 py-16">
+
+      {/* Approval queue: reviewers see pending edits across this course */}
+      <PendingChanges scope={{ type: "course", courseId }} />
+      <MyPendingNotice prefix={courseId} />
 
       {/* Course header */}
       <div className="mb-14">

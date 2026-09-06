@@ -17,7 +17,8 @@ export type Permission =
   | "edit_urls"
   | "edit_authors"
   | "manage_courses"
-  | "manage_roles";
+  | "manage_roles"
+  | "approve_edits";
 
 // site_content key holding the permission map for a role
 export function rolePermKey(role: string) {
@@ -120,6 +121,35 @@ export function evalPermission(
   return hasScopeAccess(profile?.username, content, scope);
 }
 
+// May this user publish directly, and review other people's proposed edits?
+// Everyone else's edits queue in content_revisions until someone with this
+// right approves them.
+//
+// Deliberately falls back when a role has never been configured for it: a
+// reviewer-type role — one that can already publish or read drafts — approves
+// by default. Without that, deploying this feature before an admin opens the
+// roles panel would queue everyone's edits with nobody able to clear them.
+export function canApproveEdits(
+  profile: Profile | null,
+  content: Record<string, string>,
+  scope: EditScope
+): boolean {
+  if (profile?.is_admin) return true;
+  const role = profile?.role;
+  if (!role) return false;
+
+  let rolePerms: Record<string, boolean>;
+  try { rolePerms = JSON.parse(content[rolePermKey(role)] ?? "{}"); }
+  catch { return false; }
+
+  const granted = rolePerms.approve_edits !== undefined
+    ? !!rolePerms.approve_edits
+    : !!(rolePerms.manage_lessons || rolePerms.view_drafts);
+  if (!granted) return false;
+
+  return hasScopeAccess(profile?.username, content, scope);
+}
+
 // Can this user see unpublished (draft / soon) content in this scope?
 // Anyone who can act on it here — publish, view drafts, or edit — may see it.
 // Since permissions are scoped, an editor only gains this on lessons they're
@@ -155,7 +185,9 @@ export function hasAnyEditAccessInCourse(
 
 export function usePermissions(scopeOverride?: EditScope) {
   const { profile } = useAuth();
-  const { content } = useContentContext();
+  // Deliberately the live content, not the pending overlay: a user's own
+  // unapproved edits must never influence what they're allowed to do.
+  const { liveContent: content } = useContentContext();
   const ctxScope = useEditScope();
   const previewMode = useContext(PreviewModeContext);
   const previewToken = useContext(PreviewTokenContext);
