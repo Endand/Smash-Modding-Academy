@@ -228,6 +228,9 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
 
 type BlockType = "text" | "code" | "image" | "quote" | "video";
 
+// Selectable display widths (% of the content column) for image blocks.
+const IMAGE_WIDTHS = ["25", "50", "75", "100"] as const;
+
 // Parse a YouTube/Vimeo URL into a safe embed URL. The embed is rebuilt from the
 // extracted id (never the raw input), so arbitrary iframe srcs can't be injected.
 function videoEmbed(url: string): string | null {
@@ -495,6 +498,9 @@ function BlockRenderer({
 
   if (block.type === "image") {
     const url = blockContent;
+    const hasImage = url && url !== "https://example.com/image.png";
+    // Display width as a % of the content column; defaults to full width.
+    const width = content[`${prefix}_width`] ?? "100";
     return (
       <div className="group relative">
         {controls}
@@ -513,14 +519,34 @@ function BlockRenderer({
             <ImageUploadBtn onUploaded={(publicUrl) => updateContent(`${prefix}_content`, publicUrl)} />
           </div>
         )}
-        {url && url !== "https://example.com/image.png" ? (
+        {canEdit && hasImage && (
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="font-mono text-[9px] uppercase tracking-widest opacity-40 mr-0.5" style={{ color: "var(--text-muted)" }}>
+              Size:
+            </span>
+            {IMAGE_WIDTHS.map((w) => (
+              <button
+                key={w}
+                onClick={() => updateContent(`${prefix}_width`, w)}
+                title={`Display at ${w}% width`}
+                className="font-mono text-[9px] px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                style={width === w
+                  ? { color: "var(--accent-medium)", border: "1px solid var(--accent-medium)" }
+                  : { color: "var(--text-muted)", border: "1px solid var(--border-color)" }}
+              >
+                {w}%
+              </button>
+            ))}
+          </div>
+        )}
+        {hasImage ? (
           <figure>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={url}
               alt={caption || ""}
-              className="w-full rounded-[var(--radius-card)] object-cover"
-              style={{ border: "1px solid var(--border-color)" }}
+              className="block mx-auto rounded-[var(--radius-card)] object-cover"
+              style={{ width: `${width}%`, border: "1px solid var(--border-color)" }}
             />
             {(caption || canEdit) && (
               <figcaption className="text-center mt-2 text-[12px]" style={{ color: "var(--text-muted)", opacity: 0.6 }}>
@@ -1061,6 +1087,10 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
   const canManage = !previewMode && canReal("manage_sections");
   const canPublish = !previewMode && canReal("manage_lessons");
 
+  // Editors (edit_content) may contribute items to the assignment, knowledge
+  // check and resources lists. Reordering and removal stay with manage_sections.
+  const canAddItems = canManage || canEdit;
+
   // Real (preview-independent) — for access gating and the toggle's own visibility
   const canViewDrafts = isAdminReal || canReal("manage_lessons") || canReal("view_drafts") || canReal("edit_content");
   const canEditHere = isAdminReal || canReal("edit_content") || canReal("manage_sections");
@@ -1571,7 +1601,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
               No steps yet.
             </p>
           )}
-          {canManage && <AddBtn label="Add Step" onClick={addAssignItem} />}
+          {canAddItems && <AddBtn label="Add Step" onClick={addAssignItem} />}
         </div>
       ) : (
         <div className="mb-14">
@@ -1605,7 +1635,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
               There is no assignment for this lesson.
             </p>
           )}
-          {canManage && <AddBtn label="Add Task" onClick={addAssignItem} />}
+          {canAddItems && <AddBtn label="Add Task" onClick={addAssignItem} />}
         </div>
       )}
 
@@ -1642,7 +1672,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
             There is no knowledge check for this lesson.
           </p>
         )}
-        {canManage && <AddBtn label="Add Question" onClick={addKCItem} />}
+        {canAddItems && <AddBtn label="Add Question" onClick={addKCItem} />}
       </div>
       )}
 
@@ -1686,7 +1716,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
             There are no additional resources for this lesson.
           </p>
         )}
-        {canManage && <AddBtn label="Add Resource" onClick={addResource} />}
+        {canAddItems && <AddBtn label="Add Resource" onClick={addResource} />}
       </div>
       )}
 

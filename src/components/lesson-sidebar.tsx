@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronDown, BookOpen, Wrench, Check } from "lucide-react";
+import { ChevronLeft, ChevronDown, BookOpen, Check } from "lucide-react";
+import { ICONS } from "@/components/editable-icon";
 import { useContentContext } from "@/components/content-provider";
 import { useAuth } from "@/components/auth-provider";
 import { usePermissions, canSeeDrafts } from "@/hooks/use-permissions";
@@ -50,6 +51,7 @@ export function LessonSidebar({ currentSlug, courseId = "foundations" }: Sidebar
                 const title = content[`${lesson.lessonKey}_title`] ?? lesson.titleFallback;
                 const iconName = content[`${lesson.lessonKey}_icon`] ?? lesson.iconFallback;
                 const isProject = PROJECT_ICONS.has(iconName);
+                const Icon = ICONS[iconName] ?? ICONS[lesson.iconFallback] ?? BookOpen;
                 const isActive = lesson.slug === currentSlug;
                 const status = getEffectiveStatus(lesson.lessonKey, lesson.hasStaticContent, content);
                 // Assistants/professors (view_drafts or publish rights) can reach
@@ -76,7 +78,7 @@ export function LessonSidebar({ currentSlug, courseId = "foundations" }: Sidebar
                     }}
                   >
                     <span className="shrink-0" style={{ color: isProject ? "var(--accent-medium)" : "inherit" }}>
-                      {isProject ? <Wrench size={11} strokeWidth={1.5} /> : <BookOpen size={11} strokeWidth={1.5} />}
+                      <Icon size={11} strokeWidth={1.5} />
                     </span>
                     <span className="leading-snug flex-1 capitalize">{title}</span>
                     {isComplete && (

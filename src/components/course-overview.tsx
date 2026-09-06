@@ -21,7 +21,7 @@ import {
   type LiveLesson,
   type LiveSection,
 } from "@/hooks/use-course-structure";
-import { getCourseKeys, getCourseSlug, getCourseStatus, slugFromTitle, PROJECT_ICONS } from "@/lib/courses/course-utils";
+import { getCourseKeys, getCourseSlug, getCourseStatus, slugFromTitle, levelColor, PROJECT_ICONS } from "@/lib/courses/course-utils";
 import { replaceSlugMapEntry } from "@/lib/courses/slug-sync";
 
 const LEVELS = ["Beginner", "Intermediate", "Advanced"] as const;
@@ -38,12 +38,13 @@ function LevelBadge({ courseId }: { courseId: string }) {
   const { can } = usePermissions();
   const { levelKey } = getCourseKeys(courseId);
   const level = content[levelKey] ?? "Beginner";
+  const color = levelColor(level);
 
   if (!can("manage_lessons")) {
     return (
       <span
         className="font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-[var(--radius-tag)]"
-        style={{ color: "var(--accent-medium)", border: "1px solid var(--accent-medium)" }}
+        style={{ color, border: `1px solid ${color}` }}
       >
         {level}
       </span>
@@ -55,11 +56,11 @@ function LevelBadge({ courseId }: { courseId: string }) {
         value={level}
         onChange={(e) => updateContent(levelKey, e.target.value)}
         className="appearance-none font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 pr-6 rounded-[var(--radius-tag)] cursor-pointer bg-transparent outline-none"
-        style={{ color: "var(--accent-medium)", border: "1px solid var(--accent-medium)" }}
+        style={{ color, border: `1px solid ${color}` }}
       >
         {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
       </select>
-      <ChevronDown size={9} className="absolute right-1.5 pointer-events-none" style={{ color: "var(--accent-medium)" }} />
+      <ChevronDown size={9} className="absolute right-1.5 pointer-events-none" style={{ color }} />
     </div>
   );
 }

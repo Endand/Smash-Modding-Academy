@@ -14,6 +14,7 @@ import {
   getCourseKeys,
   getCourseSlug,
   getCourseStatus,
+  levelColor,
   SEED_COURSE_IDS,
 } from "@/lib/courses/course-utils";
 
@@ -127,7 +128,7 @@ function CourseCard({
           <span
             className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-[var(--radius-tag)] shrink-0"
             style={isAvailable && !isDeleted
-              ? { color: "var(--accent-medium)", border: "1px solid var(--accent-medium)" }
+              ? { color: levelColor(level), border: `1px solid ${levelColor(level)}` }
               : { color: "var(--text-muted)", border: "1px solid var(--border-color)" }}
           >
             {level}

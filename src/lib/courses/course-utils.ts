@@ -64,3 +64,13 @@ export const SEED_COURSE_IDS = ["foundations", "character-modding"];
 
 // Icons that mark a lesson as a project (drives the Project badge and layout)
 export const PROJECT_ICONS = new Set(["Wrench", "Hammer", "Package", "Target", "Trophy"]);
+
+// Difficulty tag color: beginner green, intermediate blue, advanced red.
+// Matches the role palette (#3b82f6 professor blue, #ed4245 danger red).
+export function levelColor(level: string): string {
+  switch (level.trim().toLowerCase()) {
+    case "intermediate": return "#3b82f6";
+    case "advanced":     return "#ed4245";
+    default:             return "var(--accent-medium)";
+  }
+}
