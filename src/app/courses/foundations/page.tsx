@@ -4,6 +4,8 @@ import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { CourseOverview } from "@/components/course-overview";
 import { createClient } from "@/lib/supabase/server";
+import { PreviewTokenProvider } from "@/hooks/use-permissions";
+import { readPreviewParam } from "@/lib/preview-token";
 
 // If the course URL was renamed (course_foundations_slug set to something
 // else), this legacy static route stops resolving.
@@ -32,15 +34,22 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function FoundationsPage() {
+export default async function FoundationsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   if (!(await foundationsSlugCurrent())) return notFound();
+  const previewToken = readPreviewParam(await searchParams);
 
   return (
     <>
       <Nav />
-      <main className="pt-14 min-h-screen">
-        <CourseOverview courseId="foundations" />
-      </main>
+      <PreviewTokenProvider token={previewToken}>
+        <main className="pt-14 min-h-screen">
+          <CourseOverview courseId="foundations" />
+        </main>
+      </PreviewTokenProvider>
       <Footer />
     </>
   );

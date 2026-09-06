@@ -3,6 +3,7 @@
 import { createContext, createElement, useContext } from "react";
 import { useAuth, type Profile } from "@/components/auth-provider";
 import { useContentContext } from "@/components/content-provider";
+import { hasPreviewGrant } from "@/lib/preview-token";
 
 // Permission keys defined on the /admin Roles & Permissions panel.
 export type Permission =
@@ -56,6 +57,20 @@ export function PreviewModeProvider({ value, children }: { value: boolean; child
 
 export function usePreviewMode() {
   return useContext(PreviewModeContext);
+}
+
+// ── Secret preview links ──────────────────────────────────────────────────────
+// The `?preview=<token>` value for the current page, supplied by the route's
+// server component. A matching token unlocks unpublished content for anyone.
+
+const PreviewTokenContext = createContext<string | null>(null);
+
+export function PreviewTokenProvider({ token, children }: { token: string | null; children: React.ReactNode }) {
+  return createElement(PreviewTokenContext.Provider, { value: token }, children);
+}
+
+export function usePreviewToken() {
+  return useContext(PreviewTokenContext);
 }
 
 // site_content keys holding the edit-access username lists
@@ -143,6 +158,7 @@ export function usePermissions(scopeOverride?: EditScope) {
   const { content } = useContentContext();
   const ctxScope = useEditScope();
   const previewMode = useContext(PreviewModeContext);
+  const previewToken = useContext(PreviewTokenContext);
   const scope = scopeOverride ?? ctxScope;
 
   // In preview mode, edit permissions read false so the UI renders as a reader's.
@@ -150,12 +166,26 @@ export function usePermissions(scopeOverride?: EditScope) {
   // `canReal` ignores preview mode — for access/gating that must not be suppressed.
   const canReal = (perm: Permission): boolean => evalPermission(profile, content, scope, perm);
 
+  // A valid `?preview=` token unlocks viewing unpublished content in this scope.
+  // It grants read access only — never any edit permission.
+  const previewGrant =
+    scope.type === "site"
+      ? false
+      : hasPreviewGrant(
+          previewToken,
+          content,
+          scope.courseId,
+          scope.type === "lesson" ? scope.lessonKey : undefined
+        );
+
   return {
     can,
     canReal,
     isAdmin: previewMode ? false : !!profile?.is_admin,
     isAdminReal: !!profile?.is_admin,
     previewMode,
+    previewToken,
+    previewGrant,
     scope,
   };
 }

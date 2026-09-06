@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getStaticLessonKey, getStaticLesson } from "@/lib/courses/foundations-data";
 import { LessonSidebar } from "@/components/lesson-sidebar";
 import { LessonContent } from "@/components/lesson-content";
-import { EditScopeProvider } from "@/hooks/use-permissions";
+import { EditScopeProvider, PreviewTokenProvider } from "@/hooks/use-permissions";
+import { readPreviewParam } from "@/lib/preview-token";
 import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 
@@ -14,6 +15,7 @@ const SEED_SLUG_MAP: Record<string, string> = {
 
 interface Props {
   params: Promise<{ courseSlug: string; lessonSlug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
 async function resolveLesson(
@@ -114,11 +116,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function LessonPage({ params }: Props) {
+export default async function LessonPage({ params, searchParams }: Props) {
   const { courseSlug, lessonSlug } = await params;
   const resolved = await resolveLesson(courseSlug, lessonSlug);
   if (!resolved) return notFound();
   const { courseId, lessonKey } = resolved;
+  const previewToken = readPreviewParam(await searchParams);
 
   // Most recent edit across this lesson's content keys
   const supabase = await createClient();
@@ -133,6 +136,7 @@ export default async function LessonPage({ params }: Props) {
   return (
     <>
       <Nav />
+      <PreviewTokenProvider token={previewToken}>
       <EditScopeProvider scope={{ type: "course", courseId }}>
       <div className="pt-14 min-h-screen flex flex-col md:flex-row">
         <LessonSidebar currentSlug={lessonSlug} courseId={courseId} />
@@ -141,6 +145,7 @@ export default async function LessonPage({ params }: Props) {
         </main>
       </div>
       </EditScopeProvider>
+      </PreviewTokenProvider>
       <Footer />
     </>
   );

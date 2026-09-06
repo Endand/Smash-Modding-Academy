@@ -5,6 +5,8 @@ import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { CourseOverview } from "@/components/course-overview";
 import { getCourseKeys } from "@/lib/courses/course-utils";
+import { PreviewTokenProvider } from "@/hooks/use-permissions";
+import { readPreviewParam } from "@/lib/preview-token";
 
 // Static slug → courseId for seed courses that don't have their own page files.
 // "foundations" has a static page that takes priority and never hits this route.
@@ -14,6 +16,7 @@ const SEED_SLUG_MAP: Record<string, string> = {
 
 interface Props {
   params: Promise<{ courseSlug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
 async function resolveCourseId(courseSlug: string): Promise<string | null> {
@@ -67,17 +70,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function CoursePage({ params }: Props) {
+export default async function CoursePage({ params, searchParams }: Props) {
   const { courseSlug } = await params;
   const courseId = await resolveCourseId(courseSlug);
   if (!courseId) return notFound();
+  const previewToken = readPreviewParam(await searchParams);
 
   return (
     <>
       <Nav />
-      <main className="pt-14 min-h-screen">
-        <CourseOverview courseId={courseId} />
-      </main>
+      <PreviewTokenProvider token={previewToken}>
+        <main className="pt-14 min-h-screen">
+          <CourseOverview courseId={courseId} />
+        </main>
+      </PreviewTokenProvider>
       <Footer />
     </>
   );

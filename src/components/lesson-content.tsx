@@ -15,6 +15,8 @@ import { getStaticLesson } from "@/lib/courses/foundations-data";
 import { getCourseKeys, getCourseSlug, slugFromTitle, PROJECT_ICONS } from "@/lib/courses/course-utils";
 import { replaceSlugMapEntry } from "@/lib/courses/slug-sync";
 import { renderInline } from "@/lib/inline-markdown";
+import { PreviewLinkBtn } from "@/components/preview-link-btn";
+import { hasPreviewGrant, lessonPreviewKey, withPreview } from "@/lib/preview-token";
 
 // ── Shared admin UI ───────────────────────────────────────────────────────────
 
@@ -1075,7 +1077,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
   const { content, updateContent } = useContentContext();
   // Permissions here are scoped to THIS lesson — a role-holder can act only if
   // an admin granted them this lesson (or its whole course).
-  const { canReal, isAdminReal } = usePermissions({ type: "lesson", courseId, lessonKey });
+  const { canReal, isAdminReal, previewToken, previewGrant } = usePermissions({ type: "lesson", courseId, lessonKey });
 
   // "Preview as reader" — an editor can flip this to see the page exactly as a
   // reader would (markdown formatted, no edit UI). Local to this lesson page.
@@ -1091,8 +1093,10 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
   // check and resources lists. Reordering and removal stay with manage_sections.
   const canAddItems = canManage || canEdit;
 
-  // Real (preview-independent) — for access gating and the toggle's own visibility
-  const canViewDrafts = isAdminReal || canReal("manage_lessons") || canReal("view_drafts") || canReal("edit_content");
+  // Real (preview-independent) — for access gating and the toggle's own visibility.
+  // A valid secret link (previewGrant) also opens unpublished content, for people
+  // with no account at all; it grants viewing only, never editing.
+  const canViewDrafts = isAdminReal || canReal("manage_lessons") || canReal("view_drafts") || canReal("edit_content") || previewGrant;
   const canEditHere = isAdminReal || canReal("edit_content") || canReal("manage_sections");
   const { allLessons } = useCourseStructure(courseId);
 
@@ -1121,17 +1125,20 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
     const target = `/courses/${courseSlug}/${contentSlug}`;
     if (pathname === target) return;
     // small delay so the slug/map upserts land before the server resolves it
-    const t = setTimeout(() => router.replace(target), 1200);
+    const t = setTimeout(() => router.replace(withPreview(target, previewToken)), 1200);
     return () => clearTimeout(t);
-  }, [pathname, courseSlug, contentSlug, router]);
+  }, [pathname, courseSlug, contentSlug, router, previewToken]);
 
   // Prev / Next from live structure
   const currentIdx = allLessons.findIndex((l) => l.slug === slug);
   const prev = currentIdx > 0 ? allLessons[currentIdx - 1] : null;
   const next = currentIdx < allLessons.length - 1 ? allLessons[currentIdx + 1] : null;
 
-  const isAccessiblePrev = prev && (getEffectiveStatus(prev.lessonKey, prev.hasStaticContent, content) === "published" || canPublish);
-  const isAccessibleNext = next && (getEffectiveStatus(next.lessonKey, next.hasStaticContent, content) === "published" || canPublish);
+  // A course-wide token opens neighbouring lessons too; a lesson-only token
+  // unlocks just this page, so it must not reveal the ones around it.
+  const courseGrant = hasPreviewGrant(previewToken, content, courseId);
+  const isAccessiblePrev = prev && (getEffectiveStatus(prev.lessonKey, prev.hasStaticContent, content) === "published" || canPublish || courseGrant);
+  const isAccessibleNext = next && (getEffectiveStatus(next.lessonKey, next.hasStaticContent, content) === "published" || canPublish || courseGrant);
 
   // ── Outcomes ─────────────────────────────────────────────────────────────
   const defaultOutcomeCount = d?.outcomes.length ?? 0;
@@ -1342,22 +1349,29 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
         <nav className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-[var(--text-muted)] min-w-0" aria-label="Breadcrumb">
           <Link href="/curriculum" className="hover:text-[var(--text)] transition-colors">Curriculum</Link>
           <span className="opacity-30">/</span>
-          <Link href={`/courses/${courseSlug}`} className="hover:text-[var(--text)] transition-colors truncate">{courseTitle}</Link>
+          <Link href={withPreview(`/courses/${courseSlug}`, previewToken)} className="hover:text-[var(--text)] transition-colors truncate">{courseTitle}</Link>
           <span className="opacity-30">/</span>
           <span className="truncate" style={{ color: "var(--text)" }}>{content[`${lk}_title`] ?? staticLesson?.titleFallback}</span>
         </nav>
         {canEditHere && (
-          <button
-            onClick={() => setPreviewMode((v) => !v)}
-            title={previewMode ? "Return to editing" : "Preview how readers see this page"}
-            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest cursor-pointer rounded-[var(--radius-button)] transition-colors"
-            style={previewMode
-              ? { background: "var(--accent)", color: "#fff", border: "1px solid var(--accent)" }
-              : { color: "var(--text-muted)", border: "1px solid var(--border-strong)" }}
-          >
-            {previewMode ? <Pencil size={12} /> : <Eye size={12} />}
-            {previewMode ? "Editing" : "Preview"}
-          </button>
+          <div className="shrink-0 flex items-center gap-2">
+            <PreviewLinkBtn
+              tokenKey={lessonPreviewKey(lk)}
+              path={`/courses/${courseSlug}/${contentSlug}`}
+              what="lesson"
+            />
+            <button
+              onClick={() => setPreviewMode((v) => !v)}
+              title={previewMode ? "Return to editing" : "Preview how readers see this page"}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest cursor-pointer rounded-[var(--radius-button)] transition-colors"
+              style={previewMode
+                ? { background: "var(--accent)", color: "#fff", border: "1px solid var(--accent)" }
+                : { color: "var(--text-muted)", border: "1px solid var(--border-strong)" }}
+            >
+              {previewMode ? <Pencil size={12} /> : <Eye size={12} />}
+              {previewMode ? "Editing" : "Preview"}
+            </button>
+          </div>
         )}
       </div>
 
@@ -1738,7 +1752,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
       {/* Prev / Next navigation */}
       <div className="flex items-start justify-between gap-4 pt-8" style={{ borderTop: "1px solid var(--border-color)" }}>
         {isAccessiblePrev ? (
-          <Link href={`/courses/${courseSlug}/${prev!.slug}`} className="flex items-center gap-2 text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+          <Link href={withPreview(`/courses/${courseSlug}/${prev!.slug}`, previewToken)} className="flex items-center gap-2 text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
             <ChevronLeft size={15} className="shrink-0" />
             <div>
               <div className="font-mono text-[9px] uppercase tracking-widest opacity-50 mb-0.5">Previous</div>
@@ -1747,7 +1761,7 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
           </Link>
         ) : <div />}
         {isAccessibleNext ? (
-          <Link href={`/courses/${courseSlug}/${next!.slug}`} className="flex items-center gap-2 text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors text-right">
+          <Link href={withPreview(`/courses/${courseSlug}/${next!.slug}`, previewToken)} className="flex items-center gap-2 text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors text-right">
             <div>
               <div className="font-mono text-[9px] uppercase tracking-widest opacity-50 mb-0.5">Next</div>
               <div>{content[`${next!.lessonKey}_title`] ?? next!.titleFallback}</div>

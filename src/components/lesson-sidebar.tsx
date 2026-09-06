@@ -6,7 +6,8 @@ import { ChevronLeft, ChevronDown, BookOpen, Check } from "lucide-react";
 import { ICONS } from "@/components/editable-icon";
 import { useContentContext } from "@/components/content-provider";
 import { useAuth } from "@/components/auth-provider";
-import { usePermissions, canSeeDrafts } from "@/hooks/use-permissions";
+import { usePermissions, canSeeDrafts, usePreviewToken } from "@/hooks/use-permissions";
+import { hasPreviewGrant, withPreview } from "@/lib/preview-token";
 import { useProgress } from "@/components/progress-provider";
 import { useCourseStructure, getEffectiveStatus } from "@/hooks/use-course-structure";
 import { getCourseKeys, getCourseSlug, PROJECT_ICONS } from "@/lib/courses/course-utils";
@@ -21,6 +22,7 @@ export function LessonSidebar({ currentSlug, courseId = "foundations" }: Sidebar
   const { profile } = useAuth();
   const { can } = usePermissions();
   const canPublish = can("manage_lessons");
+  const previewToken = usePreviewToken();
   const { completed } = useProgress();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { sections } = useCourseStructure(courseId);
@@ -30,7 +32,7 @@ export function LessonSidebar({ currentSlug, courseId = "foundations" }: Sidebar
   const sidebarContent = (
     <div className="py-4">
       <Link
-        href={`/courses/${courseSlug}`}
+        href={withPreview(`/courses/${courseSlug}`, previewToken)}
         className="flex items-center gap-1.5 px-4 pb-4 font-mono text-[11px] uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
         style={{ borderBottom: "1px solid var(--border-color)" }}
         onClick={() => setMobileOpen(false)}
@@ -56,7 +58,9 @@ export function LessonSidebar({ currentSlug, courseId = "foundations" }: Sidebar
                 const status = getEffectiveStatus(lesson.lessonKey, lesson.hasStaticContent, content);
                 // Assistants/professors (view_drafts or publish rights) can reach
                 // their granted lesson even in draft/soon; editors cannot.
-                const canSeeUnpublished = canSeeDrafts(profile, content, { type: "lesson", courseId, lessonKey: lesson.lessonKey });
+                const canSeeUnpublished =
+                  canSeeDrafts(profile, content, { type: "lesson", courseId, lessonKey: lesson.lessonKey }) ||
+                  hasPreviewGrant(previewToken, content, courseId, lesson.lessonKey);
                 const isAccessible = status === "published" || canSeeUnpublished;
                 const isComplete = completed.has(lesson.lessonKey);
 
@@ -95,7 +99,7 @@ export function LessonSidebar({ currentSlug, courseId = "foundations" }: Sidebar
                 return isAccessible ? (
                   <Link
                     key={lesson.lessonKey}
-                    href={`/courses/${courseSlug}/${lesson.slug}`}
+                    href={withPreview(`/courses/${courseSlug}/${lesson.slug}`, previewToken)}
                     className="block"
                     onClick={() => setMobileOpen(false)}
                   >

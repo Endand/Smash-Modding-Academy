@@ -10,6 +10,8 @@ import { EditableIcon } from "@/components/editable-icon";
 import { useContentContext } from "@/components/content-provider";
 import { useAuth } from "@/components/auth-provider";
 import { EditAccessManager, RemoveBtn } from "@/components/lesson-content";
+import { PreviewLinkBtn } from "@/components/preview-link-btn";
+import { hasPreviewGrant, coursePreviewKey, withPreview } from "@/lib/preview-token";
 import { usePermissions, EditScopeProvider, canSeeDrafts, hasAnyEditAccessInCourse, courseAclKey } from "@/hooks/use-permissions";
 import {
   useCourseStructure,
@@ -99,10 +101,46 @@ function StatusControl({ lessonKey, hasStaticContent }: { lessonKey: string; has
   );
 }
 
+// ── Move-to-section dropdown ──────────────────────────────────────────────────
+// Reassigns a lesson to another section. The lesson key never changes, so its
+// content, slug, authors and learner progress all travel with it.
+
+function SectionPicker({
+  sections, sectionId, onMoveToSection,
+}: {
+  sections: LiveSection[];
+  sectionId: string;
+  onMoveToSection: (toSectionId: string) => void;
+}) {
+  const { content } = useContentContext();
+  if (sections.length < 2) return null;
+
+  return (
+    <div className="relative inline-flex items-center">
+      <select
+        value={sectionId}
+        onChange={(e) => { if (e.target.value !== sectionId) onMoveToSection(e.target.value); }}
+        onClick={(e) => e.stopPropagation()}
+        title="Move this lesson to another section"
+        className="appearance-none font-mono text-[9px] uppercase tracking-widest pr-4 pl-1.5 py-0.5 rounded cursor-pointer bg-transparent outline-none max-w-[110px] truncate"
+        style={{ color: "var(--text-muted)", border: "1px solid var(--border-strong)" }}
+      >
+        {sections.map((s) => (
+          <option key={s.sectionId} value={s.sectionId}>
+            {content[`${s.sectionKey}_title`] ?? s.titleFallback}
+          </option>
+        ))}
+      </select>
+      <ChevronDown size={9} className="absolute right-0.5 pointer-events-none" style={{ color: "var(--text-muted)" }} />
+    </div>
+  );
+}
+
 // ── Lesson row ────────────────────────────────────────────────────────────────
 
 function LessonRow({
   lesson, courseId, courseSlug, isLast, onRemove, onMove, canMoveUp, canMoveDown,
+  sections, sectionId, onMoveToSection,
 }: {
   lesson: LiveLesson;
   courseId: string;
@@ -112,15 +150,20 @@ function LessonRow({
   onMove: (dir: -1 | 1) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
+  sections: LiveSection[];
+  sectionId: string;
+  onMoveToSection: (toSectionId: string) => void;
 }) {
   const { content } = useContentContext();
   const { profile } = useAuth();
-  const { can } = usePermissions();
+  const { can, previewToken } = usePermissions();
   const canCurriculum = can("manage_curriculum");
   const canPublish = can("manage_lessons");
   // Assistants/professors can reach a granted lesson even in draft/soon;
-  // editors (edit-only, no view_drafts) cannot.
-  const canSeeUnpublished = canSeeDrafts(profile, content, { type: "lesson", courseId, lessonKey: lesson.lessonKey });
+  // editors (edit-only, no view_drafts) cannot. A secret link also opens it.
+  const canSeeUnpublished =
+    canSeeDrafts(profile, content, { type: "lesson", courseId, lessonKey: lesson.lessonKey }) ||
+    hasPreviewGrant(previewToken, content, courseId, lesson.lessonKey);
   const { completed } = useProgress();
   const iconName = content[`${lesson.lessonKey}_icon`] ?? lesson.iconFallback;
   const isProject = PROJECT_ICONS.has(iconName);
@@ -158,6 +201,7 @@ function LessonRow({
       <StatusControl lessonKey={lesson.lessonKey} hasStaticContent={lesson.hasStaticContent} />
       {canCurriculum && (
         <span className="flex items-center gap-0.5 shrink-0 ml-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+          <SectionPicker sections={sections} sectionId={sectionId} onMoveToSection={onMoveToSection} />
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMove(-1); }}
             disabled={!canMoveUp}
@@ -183,7 +227,7 @@ function LessonRow({
   );
 
   return isAccessible ? (
-    <Link href={`/courses/${courseSlug}/${lesson.slug}`} className="block">{inner}</Link>
+    <Link href={withPreview(`/courses/${courseSlug}/${lesson.slug}`, previewToken)} className="block">{inner}</Link>
   ) : inner;
 }
 
@@ -309,7 +353,7 @@ export function CourseOverview({ courseId }: { courseId: string }) {
   const { content, updateContent } = useContentContext();
   // Permissions scoped to THIS course — a role-holder can act only if an admin
   // granted them this course.
-  const { can, isAdmin } = usePermissions({ type: "course", courseId });
+  const { can, isAdmin, previewGrant, previewToken } = usePermissions({ type: "course", courseId });
   const { profile } = useAuth();
   const canEdit = can("edit_content");
   const canCurriculum = can("manage_curriculum");
@@ -318,7 +362,8 @@ export function CourseOverview({ courseId }: { courseId: string }) {
   const { sections, allLessons } = useCourseStructure(courseId);
   // Can this user reach this course at all? Admins; anyone granted the course or
   // any lesson in it. Lets a lesson-granted editor open a draft/soon course.
-  const canAccessCourse = isAdmin || hasAnyEditAccessInCourse(profile?.username, content, courseId, allLessons.map((l) => l.lessonKey));
+  // A course-wide secret link also opens it, for people with no account.
+  const canAccessCourse = isAdmin || previewGrant || hasAnyEditAccessInCourse(profile?.username, content, courseId, allLessons.map((l) => l.lessonKey));
   const { completed, signedIn } = useProgress();
   const { titleKey, descKey } = getCourseKeys(courseId);
   const courseSlug = getCourseSlug(courseId, content);
@@ -333,9 +378,9 @@ export function CourseOverview({ courseId }: { courseId: string }) {
     if (parts.length !== 2 || parts[0] !== "courses") return;
     if (parts[1] === courseSlug) return;
     // small delay so the slug/map upserts land before the server resolves it
-    const t = setTimeout(() => router.replace(`/courses/${courseSlug}`), 1200);
+    const t = setTimeout(() => router.replace(withPreview(`/courses/${courseSlug}`, previewToken)), 1200);
     return () => clearTimeout(t);
-  }, [pathname, courseSlug, router]);
+  }, [pathname, courseSlug, router, previewToken]);
 
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
@@ -366,6 +411,25 @@ export function CourseOverview({ courseId }: { courseId: string }) {
     const ids = getLessonIdList(courseId, section.sectionId, content);
     const next = moveVisible(ids, lId, dir, (x) => content[`${courseId}_${x}_deleted`] !== "1");
     if (next) updateContent(`${section.sectionKey}_lesson_ids`, JSON.stringify(next));
+  };
+
+  // Reassign a lesson to another section: pull its id out of the source list and
+  // append it to the target's. The lesson key is section-independent, so the
+  // lesson's content, slug, authors and learner progress are untouched.
+  const moveLessonToSection = (from: LiveSection, lId: string, toSectionId: string) => {
+    if (toSectionId === from.sectionId) return;
+    const target = sections.find((s) => s.sectionId === toSectionId);
+    if (!target) return;
+
+    const fromIds = getLessonIdList(courseId, from.sectionId, content).filter((x) => x !== lId);
+    const existingTo = getLessonIdList(courseId, toSectionId, content);
+    const toIds = existingTo.includes(lId) ? existingTo : [...existingTo, lId];
+
+    // Add to the target before removing from the source. These are two separate
+    // writes, so if the second fails the lesson shows up twice — visible and
+    // fixable — rather than dropping out of the course entirely.
+    updateContent(`${target.sectionKey}_lesson_ids`, JSON.stringify(toIds));
+    updateContent(`${from.sectionKey}_lesson_ids`, JSON.stringify(fromIds));
   };
 
   const addSection = () => {
@@ -428,6 +492,15 @@ export function CourseOverview({ courseId }: { courseId: string }) {
                 <option value="draft">Draft</option>
               </select>
               <ChevronDown size={8} className="absolute right-1 pointer-events-none" style={{ color: courseStatus === "available" ? "var(--accent-medium)" : "var(--text-muted)" }} />
+            </div>
+          )}
+          {(canEdit || canCurriculum || canPublish) && (
+            <div className="ml-auto">
+              <PreviewLinkBtn
+                tokenKey={coursePreviewKey(courseId)}
+                path={`/courses/${courseSlug}`}
+                what="course"
+              />
             </div>
           )}
         </div>
@@ -529,6 +602,9 @@ export function CourseOverview({ courseId }: { courseId: string }) {
                   onMove={(dir) => moveLesson(section, lesson.lessonKey.slice(courseId.length + 1), dir)}
                   canMoveUp={i > 0}
                   canMoveDown={i < section.lessons.length - 1}
+                  sections={sections}
+                  sectionId={section.sectionId}
+                  onMoveToSection={(to) => moveLessonToSection(section, lesson.lessonKey.slice(courseId.length + 1), to)}
                 />
               ))}
               {canCurriculum && <AddLessonBtn courseId={courseId} section={section} />}
