@@ -90,7 +90,9 @@ function StatusControl({ lessonKey, hasStaticContent }: { lessonKey: string; has
       <select
         value={status}
         onChange={(e) => updateContent(`${lessonKey}_status`, e.target.value)}
-        onClick={(e) => e.stopPropagation()}
+        // preventDefault too — this sits inside the lesson row's <Link>, and
+        // stopPropagation alone still lets the browser follow the anchor.
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
         className="appearance-none font-mono text-[10px] uppercase tracking-widest pr-4 pl-1 py-0.5 rounded cursor-pointer bg-transparent outline-none"
         style={{ color: current.color, border: `1px solid ${current.color}`, opacity: 0.85 }}
       >
@@ -120,7 +122,9 @@ function SectionPicker({
       <select
         value={sectionId}
         onChange={(e) => { if (e.target.value !== sectionId) onMoveToSection(e.target.value); }}
-        onClick={(e) => e.stopPropagation()}
+        // preventDefault too — inside the lesson row's <Link>, stopPropagation
+        // alone still lets the browser follow the anchor.
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
         title="Move this lesson to another section"
         className="appearance-none font-mono text-[9px] uppercase tracking-widest pr-4 pl-1.5 py-0.5 rounded cursor-pointer bg-transparent outline-none max-w-[110px] truncate"
         style={{ color: "var(--text-muted)", border: "1px solid var(--border-strong)" }}
