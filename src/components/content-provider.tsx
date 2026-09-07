@@ -81,6 +81,8 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
   useEffect(() => { contentRef.current = liveContent; }, [liveContent]);
   const userIdRef = useRef<string | null>(userId);
   useEffect(() => { userIdRef.current = userId; }, [userId]);
+  const pendingRef = useRef<Record<string, PendingEdit>>({});
+  useEffect(() => { pendingRef.current = pendingRows; }, [pendingRows]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -136,7 +138,20 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
       )
       .subscribe();
 
-    return () => { cancelled = true; supabase.removeChannel(channel); };
+    // Same best-effort caveat as the review panel: poll and refetch on focus so
+    // an approved edit stops showing as pending without needing a reload.
+    const poll = setInterval(load, 15_000);
+    const onWake = () => { if (!document.hidden) load(); };
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("focus", onWake);
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("focus", onWake);
+    };
   }, [userId]);
 
   // Signed-out viewers never carry an overlay, even if stale state lingers.
@@ -187,13 +202,11 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
   // buffering until the microtask drains groups a multi-key action (adding a
   // block writes content + type + count) under one batch_id. A reviewer then
   // approves or rejects it whole, and can't half-apply a structural change.
-  const buffer = useRef<Map<string, { value: string; base: string | null }>>(new Map());
-  const bufferScope = useRef<ProposeScope>({ courseId: null, lessonKey: null });
+  const buffer = useRef<Map<string, { value: string; base: string | null; scope: ProposeScope }>>(new Map());
   const flushQueued = useRef(false);
 
   const flushProposals = useCallback(async () => {
     const entries = [...buffer.current.entries()];
-    const scope = bufferScope.current;
     buffer.current.clear();
     if (entries.length === 0) return;
 
@@ -202,19 +215,23 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
       const authorId = userIdRef.current;
       if (!authorId) throw new Error("not signed in");
       const batchId = crypto.randomUUID();
-      const keys = entries.map(([k]) => k);
 
       // Re-editing a field supersedes the earlier proposal rather than queueing
       // every intermediate state. (Delete-then-insert: the uniqueness rule is a
-      // partial index, which PostgREST's upsert can't target.)
-      const { error: delErr } = await withTimeout(
-        supabase.from("content_revisions")
-          .delete()
-          .eq("author_id", authorId)
-          .eq("status", "pending")
-          .in("key", keys)
-      );
-      if (delErr) throw delErr;
+      // partial index, which PostgREST's upsert can't target.) Skipped entirely
+      // when nothing here is already queued — the common case — so a first edit
+      // costs one round trip instead of two.
+      const resubmitted = entries.map(([k]) => k).filter((k) => pendingRef.current[k]);
+      if (resubmitted.length > 0) {
+        const { error: delErr } = await withTimeout(
+          supabase.from("content_revisions")
+            .delete()
+            .eq("author_id", authorId)
+            .eq("status", "pending")
+            .in("key", resubmitted)
+        );
+        if (delErr) throw delErr;
+      }
 
       const { error: insErr } = await withTimeout(
         supabase.from("content_revisions").insert(
@@ -222,8 +239,8 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
             key: k,
             new_value: v.value,
             base_value: v.base,
-            course_id: scope.courseId,
-            lesson_key: scope.lessonKey,
+            course_id: v.scope.courseId,
+            lesson_key: v.scope.lessonKey,
             batch_id: batchId,
             author_id: authorId,
           }))
@@ -256,9 +273,8 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
     });
 
     for (const [k, v] of writes) {
-      buffer.current.set(k, { value: v, base: contentRef.current[k] ?? null });
+      buffer.current.set(k, { value: v, base: contentRef.current[k] ?? null, scope });
     }
-    bufferScope.current = scope;
 
     if (!flushQueued.current) {
       flushQueued.current = true;

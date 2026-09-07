@@ -656,6 +656,30 @@ function AddBlockMenu({
   onAdd: (type: BlockType) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  // Dismiss without picking anything — clicking away or pressing Escape backs
+  // out, so opening the menu by mistake doesn't force you to create a block
+  // and then delete it.
+  useEffect(() => {
+    if (!open) return;
+    const close = () => {
+      setOpen(false);
+      const b = btnRef.current;
+      if (b) { b.style.color = "var(--text-muted)"; b.style.borderColor = "var(--border-strong)"; }
+    };
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) close();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   const options: { type: BlockType; label: string; icon: React.ReactNode }[] = [
     { type: "text", label: "Paragraph", icon: <span className="font-mono text-[10px]">¶</span> },
@@ -666,8 +690,9 @@ function AddBlockMenu({
   ];
 
   return (
-    <div className="relative mt-3">
+    <div className="relative mt-3" ref={wrapRef}>
       <button
+        ref={btnRef}
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 px-4 py-2 text-[10px] font-mono uppercase tracking-widest cursor-pointer w-full justify-center transition-colors"
         style={{ border: "1px dashed var(--border-strong)", borderRadius: "var(--radius-card)", color: "var(--text-muted)" }}

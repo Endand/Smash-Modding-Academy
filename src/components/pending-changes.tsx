@@ -54,12 +54,28 @@ export function PendingChanges({ scope }: { scope: EditScope }) {
   useEffect(() => {
     if (!canApprove) return;
     load();
+
     const supabase = createClient();
     const channel = supabase
       .channel(`review_${lessonKey ?? courseId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "content_revisions" }, () => { load(); })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    // Realtime is best-effort — it depends on the table being in the
+    // supabase_realtime publication, which the migration adds non-fatally. Poll
+    // and refetch on focus as well, so a proposal always turns up promptly
+    // instead of waiting for the reviewer to reload the page.
+    const poll = setInterval(load, 10_000);
+    const onWake = () => { if (!document.hidden) load(); };
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("focus", onWake);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("focus", onWake);
+    };
   }, [canApprove, load, lessonKey, courseId]);
 
   const review = async (revs: Revision[], accept: boolean) => {
