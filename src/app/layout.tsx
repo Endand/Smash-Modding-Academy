@@ -19,9 +19,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Smash Modding Academy — Learn Super Smash Bros. Ultimate Modding",
+  title: "Smash Modding Academy | Learn Super Smash Bros. Ultimate Modding",
   description:
-    "A free, structured curriculum for learning Super Smash Bros. Ultimate character modding — from setting up your tools to building custom fighters from scratch.",
+    "A free, structured curriculum for learning Super Smash Bros. Ultimate character modding, from setting up your tools to building custom fighters from scratch.",
   icons: {
     icon: "/favicon.svg",
   },
