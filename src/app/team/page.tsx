@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { ChevronRight, ChevronDown } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { Editable } from "@/components/editable-text";
 import { useContentContext } from "@/components/content-provider";
 import { createClient } from "@/lib/supabase/client";
 import { buildCourseStructure, getEffectiveStatus, parseJSON } from "@/lib/courses/course-structure";
-import { getCourseSlug, SEED_COURSE_IDS } from "@/lib/courses/course-utils";
+import { getCourseKeys, getCourseSlug, SEED_COURSE_IDS } from "@/lib/courses/course-utils";
 import { roleColor, ADMIN_COLOR } from "@/lib/role-color";
 
 interface Work {
@@ -16,11 +17,18 @@ interface Work {
   href: string;
 }
 
+interface CourseWork {
+  courseId: string;
+  courseTitle: string;
+  wrote: Work[];
+  edited: Work[];
+}
+
 interface Person {
   username: string;
   role: string | null;
-  wrote: Work[];
-  edited: Work[];
+  courses: CourseWork[];
+  total: number;
 }
 
 // Staff groups appear in this order; anything unrecognised falls in after them.
@@ -36,6 +44,7 @@ export default function TeamPage() {
   const { content } = useContentContext();
   const [staff, setStaff] = useState<Record<string, string> | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
 
   // Roles come from the staff_directory view, which is readable without an
   // account. If it has not been created yet the page still works: everyone
@@ -66,25 +75,39 @@ export default function TeamPage() {
   }, []);
 
   // Who worked on what, read straight from the author and editor credits on
-  // every published lesson. Nothing is maintained by hand, so the page follows
-  // the credits automatically as lessons and staff change.
+  // every published lesson, kept grouped by the course each lesson belongs to.
+  // Nothing is maintained by hand, so the page follows the credits
+  // automatically as lessons and staff change.
   const credited = useMemo(() => {
-    const people = new Map<string, Person>();
-    const add = (name: string, work: Work, kind: "wrote" | "edited") => {
+    const people = new Map<string, { username: string; courses: Map<string, CourseWork> }>();
+
+    const add = (
+      name: string,
+      courseId: string,
+      courseTitle: string,
+      work: Work,
+      kind: "wrote" | "edited"
+    ) => {
       const key = name.trim().toLowerCase();
       if (!key) return;
       let p = people.get(key);
       if (!p) {
-        p = { username: name.trim(), role: null, wrote: [], edited: [] };
+        p = { username: name.trim(), courses: new Map() };
         people.set(key, p);
       }
-      if (!p[kind].some((w) => w.href === work.href)) p[kind].push(work);
+      let c = p.courses.get(courseId);
+      if (!c) {
+        c = { courseId, courseTitle, wrote: [], edited: [] };
+        p.courses.set(courseId, c);
+      }
+      if (!c[kind].some((w) => w.href === work.href)) c[kind].push(work);
     };
 
     const courseIds: string[] = parseJSON(content["curriculum_course_ids"], SEED_COURSE_IDS);
     for (const courseId of courseIds) {
       if (content[`course_${courseId}_deleted`] === "1") continue;
       const courseSlug = getCourseSlug(courseId, content);
+      const courseTitle = content[getCourseKeys(courseId).titleKey] ?? "Untitled course";
       const { allLessons } = buildCourseStructure(courseId, content);
 
       for (const lesson of allLessons) {
@@ -97,15 +120,27 @@ export default function TeamPage() {
           href: `/courses/${courseSlug}/${lesson.slug}`,
         };
         const author = (content[`${lesson.lessonKey}_author`] ?? "").trim();
-        if (author) add(author, work, "wrote");
+        if (author) add(author, courseId, courseTitle, work, "wrote");
         (content[`${lesson.lessonKey}_editors`] ?? "")
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean)
-          .forEach((e) => add(e, work, "edited"));
+          .forEach((e) => add(e, courseId, courseTitle, work, "edited"));
       }
     }
-    return people;
+
+    // Flatten, biggest contribution first at both levels.
+    const out = new Map<string, Person>();
+    for (const [key, p] of people) {
+      const courses = [...p.courses.values()].sort(
+        (a, b) =>
+          b.wrote.length + b.edited.length - (a.wrote.length + a.edited.length) ||
+          a.courseTitle.localeCompare(b.courseTitle)
+      );
+      const total = courses.reduce((n, c) => n + c.wrote.length + c.edited.length, 0);
+      out.set(key, { username: p.username, role: null, courses, total });
+    }
+    return out;
   }, [content]);
 
   // Group by role. Somebody holding a role but credited on nothing is not
@@ -128,14 +163,12 @@ export default function TeamPage() {
     return [...byRole.entries()]
       .map(([name, people]) => ({
         name,
-        people: [...people].sort(
-          (a, b) =>
-            b.wrote.length + b.edited.length - (a.wrote.length + a.edited.length) ||
-            a.username.localeCompare(b.username)
-        ),
+        people: [...people].sort((a, b) => b.total - a.total || a.username.localeCompare(b.username)),
       }))
       .sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name));
   }, [credited, staff]);
+
+  const toggle = (key: string) => setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
 
   return (
     <>
@@ -183,9 +216,9 @@ export default function TeamPage() {
                     </span>
                   </div>
 
-                  <div className="flex flex-col gap-7">
+                  <div className="flex flex-col gap-6">
                     {g.people.map((p) => (
-                      <PersonCard key={p.username} person={p} />
+                      <PersonCard key={p.username} person={p} open={open} toggle={toggle} />
                     ))}
                   </div>
                 </section>
@@ -199,10 +232,16 @@ export default function TeamPage() {
   );
 }
 
-function PersonCard({ person }: { person: Person }) {
+function PersonCard({
+  person, open, toggle,
+}: {
+  person: Person;
+  open: Record<string, boolean>;
+  toggle: (key: string) => void;
+}) {
   return (
     <div>
-      <div className="flex items-center gap-2.5 mb-2">
+      <div className="flex items-center gap-2.5 mb-2.5">
         <span className="text-[15px]" style={{ color: "var(--text)" }}>
           @{person.username}
         </span>
@@ -214,16 +253,64 @@ function PersonCard({ person }: { person: Person }) {
             {person.role}
           </span>
         )}
+        <span
+          className="font-mono text-[9px] uppercase tracking-widest opacity-40"
+          style={{ color: "var(--text-muted)" }}
+        >
+          {person.courses.length} course{person.courses.length === 1 ? "" : "s"}
+        </span>
       </div>
-      {person.wrote.length > 0 && <WorkLine label="Wrote" items={person.wrote} />}
-      {person.edited.length > 0 && <WorkLine label="Edited" items={person.edited} />}
+
+      <div className="flex flex-col gap-1.5">
+        {person.courses.map((c) => {
+          const key = `${person.username}|${c.courseId}`;
+          const isOpen = !!open[key];
+          return (
+            <div key={c.courseId}>
+              <button
+                onClick={() => toggle(key)}
+                aria-expanded={isOpen}
+                className="w-full flex items-center gap-2 py-1.5 text-left cursor-pointer group"
+              >
+                {isOpen
+                  ? <ChevronDown size={12} className="shrink-0" style={{ color: "var(--text-muted)" }} />
+                  : <ChevronRight size={12} className="shrink-0" style={{ color: "var(--text-muted)" }} />}
+                <span
+                  className="text-[14px] capitalize transition-colors group-hover:text-[var(--text)]"
+                  style={{ color: isOpen ? "var(--text)" : "var(--text-muted)" }}
+                >
+                  {c.courseTitle}
+                </span>
+                <span
+                  className="ml-auto shrink-0 font-mono text-[9px] uppercase tracking-widest opacity-50"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {c.wrote.length > 0 && `${c.wrote.length} written`}
+                  {c.wrote.length > 0 && c.edited.length > 0 && " · "}
+                  {c.edited.length > 0 && `${c.edited.length} edited`}
+                </span>
+              </button>
+
+              {isOpen && (
+                <div
+                  className="ml-[18px] pl-3 py-1 flex flex-col gap-1"
+                  style={{ borderLeft: "1px solid var(--border-color)" }}
+                >
+                  {c.wrote.length > 0 && <WorkLine label="Wrote" items={c.wrote} />}
+                  {c.edited.length > 0 && <WorkLine label="Edited" items={c.edited} />}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 function WorkLine({ label, items }: { label: string; items: Work[] }) {
   return (
-    <p className="text-[13px] leading-relaxed mb-1" style={{ color: "var(--text-muted)" }}>
+    <p className="text-[13px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
       <span className="font-mono text-[9px] uppercase tracking-widest opacity-50 mr-2">{label}</span>
       {items.map((w, i) => (
         <span key={w.href}>
