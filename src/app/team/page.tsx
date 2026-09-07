@@ -9,7 +9,7 @@ import { Editable } from "@/components/editable-text";
 import { useContentContext } from "@/components/content-provider";
 import { createClient } from "@/lib/supabase/client";
 import { buildCourseStructure, getEffectiveStatus, parseJSON } from "@/lib/courses/course-structure";
-import { getCourseKeys, getCourseSlug, SEED_COURSE_IDS } from "@/lib/courses/course-utils";
+import { getCourseKeys, getCourseSlug, getCourseStatus, SEED_COURSE_IDS } from "@/lib/courses/course-utils";
 import { roleColor, ADMIN_COLOR } from "@/lib/role-color";
 
 interface Work {
@@ -106,6 +106,10 @@ export default function TeamPage() {
     const courseIds: string[] = parseJSON(content["curriculum_course_ids"], SEED_COURSE_IDS);
     for (const courseId of courseIds) {
       if (content[`course_${courseId}_deleted`] === "1") continue;
+      // Only released courses. A course still in draft or marked "soon" is not
+      // public, so credit for it stays hidden even when the lessons inside it
+      // are individually published.
+      if (getCourseStatus(courseId, content) !== "available") continue;
       const courseSlug = getCourseSlug(courseId, content);
       const courseTitle = content[getCourseKeys(courseId).titleKey] ?? "Untitled course";
       const { allLessons } = buildCourseStructure(courseId, content);
