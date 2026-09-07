@@ -5,6 +5,7 @@ import { ContentContext, useContentContext } from "@/components/content-provider
 import { canApproveEdits, type EditScope } from "@/hooks/use-permissions";
 import { useAuth } from "@/components/auth-provider";
 import { buildCourseStructure } from "@/lib/courses/course-structure";
+import { isPreviewTokenKey } from "@/lib/preview-token";
 
 // Re-provides the content context with `updateContent` redirected into the
 // approval queue for anyone who can't approve edits in this scope. Every edit
@@ -41,7 +42,9 @@ export function RevisionGate({ scope, children }: { scope: EditScope; children: 
     return {
       ...base,
       updateContent: (key: string, val: string) =>
-        base.proposeChange(key, val, { courseId, lessonKey: lessonFor(key) }),
+        isPreviewTokenKey(key)
+          ? base.updateContent(key, val)
+          : base.proposeChange(key, val, { courseId, lessonKey: lessonFor(key) }),
     };
   }, [base, canApprove, courseId, lessonKey, lessonKeys]);
 
