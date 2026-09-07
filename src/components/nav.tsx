@@ -93,6 +93,13 @@ export function Nav() {
             >
               Curriculum
             </Link>
+            <Link
+              href="/support"
+              className="font-mono text-[11px] uppercase tracking-widest transition-colors"
+              style={{ color: "var(--accent-medium)" }}
+            >
+              Support Us
+            </Link>
           </div>
         </div>
         <div className="flex items-center gap-3">
