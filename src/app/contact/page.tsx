@@ -20,7 +20,7 @@ export default function ContactPage() {
           <Editable
             as="p"
             contentKey="contact_body"
-            fallback="The fastest way to reach us is the Discord server — that's where questions get answered, corrections get reported, and the people who write the lessons actually hang out."
+            fallback="The fastest way to reach us is the Discord server. That's where questions get answered, corrections get reported, and the people who write the lessons actually hang out."
             className="text-[15px] leading-relaxed text-[var(--text-muted)] mb-8"
           />
 

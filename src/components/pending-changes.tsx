@@ -237,7 +237,7 @@ function BatchCard({
           </span>
         </button>
         {stale && (
-          <span title="The live version changed after this was proposed — approving overwrites it" className="shrink-0 flex items-center gap-1 font-mono text-[9px] uppercase tracking-widest" style={{ color: "#f0b232" }}>
+          <span title="The live version changed after this was proposed. Approving overwrites it" className="shrink-0 flex items-center gap-1 font-mono text-[9px] uppercase tracking-widest" style={{ color: "#f0b232" }}>
             <AlertTriangle size={10} /> Stale
           </span>
         )}

@@ -18,7 +18,7 @@ export function Hero() {
         />
         <Editable
           contentKey="hero_subtitle"
-          fallback="A free, structured curriculum for learning Super Smash Bros. Ultimate character modding — from setting up your tools to building custom fighters from scratch."
+          fallback="A free, structured curriculum for learning Super Smash Bros. Ultimate character modding, from setting up your tools to building custom fighters from scratch."
           as="p"
           className="text-[var(--text-muted)] leading-relaxed mb-10 max-w-2xl mx-auto"
           style={{ fontSize: "clamp(1rem, 1.5vw, 1.125rem)" }}

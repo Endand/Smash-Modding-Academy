@@ -19,7 +19,7 @@ export default function TeamPage() {
           <Editable
             as="p"
             contentKey="team_body"
-            fallback="Smash Modding Academy is written and maintained by modders from across the community. This page is still being put together — check back soon to meet the people behind the lessons."
+            fallback="Smash Modding Academy is written and maintained by modders from across the community. This page is still being put together. Check back soon to meet the people behind the lessons."
             className="text-[15px] leading-relaxed text-[var(--text-muted)]"
           />
         </div>

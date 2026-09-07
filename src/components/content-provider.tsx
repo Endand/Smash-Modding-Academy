@@ -299,7 +299,7 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
           style={{ background: "#ed4245", color: "#fff", maxWidth: "90vw" }}
           role="alert"
         >
-          <span className="text-[13px]">A change couldn&apos;t be saved — check your connection, then re-edit to retry.</span>
+          <span className="text-[13px]">A change couldn&apos;t be saved. Check your connection, then re-edit to retry.</span>
           <button
             onClick={() => setSaveFailed(false)}
             className="shrink-0 font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 rounded cursor-pointer"

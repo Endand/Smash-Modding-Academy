@@ -376,7 +376,7 @@ function ImageUploadBtn({ onUploaded }: { onUploaded: (url: string) => void }) {
       onUploaded(data.publicUrl);
     } catch (err) {
       console.error("[upload] failed:", err);
-      alert("Image upload failed — check that the lesson-images bucket exists.");
+      alert("Image upload failed. Check that the lesson-images bucket exists.");
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -1102,7 +1102,7 @@ export function MyPendingNotice({ prefix }: { prefix: string }) {
       style={{ border: "1px solid #f0b232", color: "#f0b232", background: "var(--surface)" }}
     >
       <Clock size={12} className="shrink-0" />
-      {mine.length} of your change{mine.length === 1 ? "" : "s"} {mine.length === 1 ? "is" : "are"} waiting for approval — only you can see {mine.length === 1 ? "it" : "them"} until then
+      {mine.length} of your change{mine.length === 1 ? "" : "s"} {mine.length === 1 ? "is" : "are"} waiting for approval. Only you can see {mine.length === 1 ? "it" : "them"} until then
     </div>
   );
 }
@@ -1785,8 +1785,8 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
           to editors/assistants; the grant scope is the whole course. */}
       <EditAccessManager
         aclKey={lessonAclKey(lk)}
-        title="Edit access — this lesson"
-        hint="People listed here can work on this lesson (per their role). Admins — and professors granted this course — can add editors and assistants."
+        title="Edit access: this lesson"
+        hint="People listed here can work on this lesson (per their role). Admins, and professors granted this course, can add editors and assistants."
         grantScope={{ type: "course", courseId }}
       />
 

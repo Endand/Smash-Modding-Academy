@@ -82,7 +82,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const rawDesc = map[`${lessonKey}_intro`] ?? staticLesson?.content?.introduction ?? "";
   const description = rawDesc.length > 160 ? `${rawDesc.slice(0, 157)}…` : rawDesc;
   return {
-    ...(title ? { title: `${title} — Smash Modding Academy` } : {}),
+    ...(title ? { title: `${title} | Smash Modding Academy` } : {}),
     ...(description ? { description } : {}),
   };
 }

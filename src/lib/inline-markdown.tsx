@@ -30,9 +30,14 @@ const RULES: Rule[] = [
     ) },
   { re: /\[([^\]]+)\]\(([^)]+)\)/, render: (m, key) => {
       const raw = m[2].trim();
-      const href = /^https?:\/\/|^mailto:/.test(raw) ? raw : "#";
+      // Site-relative paths are allowed so editable copy can link between
+      // pages; they open in the same tab. Anything that isn't an ordinary
+      // web link is dropped, which keeps javascript: and data: URLs out.
+      const internal = /^\/(?!\/)/.test(raw);
+      const href = internal || /^https?:\/\/|^mailto:/.test(raw) ? raw : "#";
       return (
-        <a key={key} href={href} target="_blank" rel="noopener noreferrer"
+        <a key={key} href={href}
+          {...(internal ? {} : { target: "_blank", rel: "noopener noreferrer" })}
           className="transition-opacity hover:opacity-75"
           style={{ color: "#00b0f4", textDecoration: "underline", textUnderlineOffset: "2px" }}>
           {m[1]}

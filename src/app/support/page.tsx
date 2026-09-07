@@ -13,7 +13,7 @@ const REASONS = [
     titleFallback: "Free for everyone, forever",
     bodyKey: "support_reason_1_body",
     bodyFallback:
-      "Every lesson, project and guide stays free to read — no paywalls, no accounts required, no ads. Donations are what make that possible.",
+      "Every lesson, project and guide stays free to read. No paywalls, no accounts required, no ads. Donations are what make that possible.",
   },
   {
     icon: <Server size={16} strokeWidth={1.5} />,
@@ -54,7 +54,7 @@ export default function SupportPage() {
           <Editable
             as="p"
             contentKey="support_intro"
-            fallback="Smash Modding Academy is built and funded by the community. There's no company behind it — just modders writing down what they've figured out, so the next person doesn't have to work it out alone. If the site has saved you time, a donation helps keep it going."
+            fallback="Smash Modding Academy is built and funded by the community. There's no company behind it, just modders writing down what they've figured out, so the next person doesn't have to work it out alone. If the site has saved you time, a donation helps keep it going."
             className="text-[15px] leading-relaxed text-[var(--text-muted)] mb-10"
           />
 

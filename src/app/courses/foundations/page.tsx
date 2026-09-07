@@ -30,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   const title = map["foundations_title"] ?? "Foundations";
   return {
-    title: `${title} — Smash Modding Academy`,
+    title: `${title} | Smash Modding Academy`,
     ...(map["foundations_description"] ? { description: map["foundations_description"] } : {}),
   };
 }

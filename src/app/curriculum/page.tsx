@@ -55,7 +55,7 @@ function RemoveWarning({
               Remove <strong className="font-medium">{courseName}</strong>?
             </p>
             <p className="text-[12px] mt-1 leading-relaxed" style={{ color: "var(--text-muted)" }}>
-              This will hide the course from all visitors. Lesson content is preserved — you can restore it by adding the course back.
+              This will hide the course from all visitors. Lesson content is preserved. You can restore it by adding the course back.
             </p>
           </div>
         </div>
@@ -242,7 +242,7 @@ export default function CurriculumPage() {
             <h1 className="text-4xl font-extralight tracking-wide text-[var(--text)] mb-4">Curriculum</h1>
             <Editable
               contentKey="curriculum_subtitle"
-              fallback="A structured path through Smash Ultimate modding — from your first texture swap to publishing finished mods."
+              fallback="A structured path through Smash Ultimate modding, from your first texture swap to publishing finished mods."
               as="p"
               className="text-[var(--text-muted)] leading-relaxed"
             />

@@ -152,7 +152,7 @@ export function PreviewLinkBtn({
                 </button>
                 <button
                   onClick={revoke}
-                  title="Disable this link — anyone still holding it loses access"
+                  title="Disable this link. Anyone still holding it loses access"
                   className="px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest cursor-pointer rounded-[var(--radius-button)] hover:brightness-110"
                   style={{ color: "#ed4245", border: "1px solid #ed4245" }}
                 >
@@ -164,7 +164,7 @@ export function PreviewLinkBtn({
             <>
               <p className="font-mono text-[9px] uppercase tracking-widest mb-2.5" style={{ color: "var(--text-muted)" }}>
                 {state === "expired"
-                  ? "That link expired — create a new one"
+                  ? "That link expired. Create a new one"
                   : `How long should this ${what} link work?`}
               </p>
               <div className="flex items-center gap-2">

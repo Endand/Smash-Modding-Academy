@@ -66,7 +66,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = map[titleKey];
   return {
-    ...(title ? { title: `${title} — Smash Modding Academy` } : {}),
+    ...(title ? { title: `${title} | Smash Modding Academy` } : {}),
     ...(map[descKey] ? { description: map[descKey] } : {}),
   };
 }

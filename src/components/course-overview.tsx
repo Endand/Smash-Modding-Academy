@@ -559,7 +559,7 @@ export function CourseOverview({ courseId }: { courseId: string }) {
       {/* Edit access — admin grants the whole course (and all its lessons) */}
       <EditAccessManager
         aclKey={courseAclKey(courseId)}
-        title="Edit access — whole course"
+        title="Edit access: whole course"
         hint="Professors listed here can edit this course and every lesson inside it. For a single lesson, grant access from that lesson's page instead."
       />
 

@@ -31,7 +31,7 @@ export function HowItWorks() {
             />
             <Editable
               contentKey="how_learn_body"
-              fallback="Follow a structured path through curated tutorials, video guides, and documentation — from file systems to fighter movesets."
+              fallback="Follow a structured path through curated tutorials, video guides, and documentation, from file systems to fighter movesets."
               as="p"
               className="text-[var(--text-muted)] leading-relaxed text-sm"
             />
@@ -51,7 +51,7 @@ export function HowItWorks() {
             />
             <Editable
               contentKey="how_build_body"
-              fallback="Create real mods at every step. Texture swaps, custom stages, character edits — build your portfolio as you learn."
+              fallback="Create real mods at every step. Texture swaps, custom stages, character edits. Build your portfolio as you learn."
               as="p"
               className="text-[var(--text-muted)] leading-relaxed text-sm"
             />

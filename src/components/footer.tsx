@@ -82,13 +82,13 @@ export function Footer() {
       </section>
 
       <footer className="py-14 px-6" style={{ borderTop: "1px solid var(--border-color)" }}>
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-start gap-10 md:gap-8">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-start gap-10 md:gap-16">
           {/* Brand + socials */}
-          <div className="md:flex-1">
+          <div className="shrink-0">
             <span className="block text-base font-extralight tracking-wide text-[var(--text)] mb-4">
               Smash Modding Academy
             </span>
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-4">
               <a
                 href={DISCORD_URL}
                 target="_blank"
@@ -110,16 +110,10 @@ export function Footer() {
                 <Github className="w-5 h-5" strokeWidth={1.5} />
               </a>
             </div>
-            <Editable
-              contentKey="footer_tagline"
-              fallback="Built with ❤️ for the Smash community"
-              as="span"
-              className="block text-[13px] text-[var(--text-muted)] opacity-70"
-            />
           </div>
 
-          {/* Link columns */}
-          <div className="flex flex-wrap gap-10 sm:gap-16">
+          {/* Link columns, spread across the remaining width */}
+          <div className="flex-1 flex flex-wrap justify-between gap-10">
             {COLUMNS.map((col) => (
               <div key={col.title}>
                 <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--text)] mb-3">

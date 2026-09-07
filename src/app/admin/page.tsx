@@ -18,7 +18,7 @@ const PERMISSIONS = [
   {
     key: "edit_content",
     label: "Edit Text Content",
-    desc: "Click-to-edit any text — titles, headings, paragraphs, code / quote / callout blocks, outcomes, tasks — on granted lessons and courses.",
+    desc: "Click-to-edit any text (titles, headings, paragraphs, code / quote / callout blocks, outcomes, tasks) on granted lessons and courses.",
   },
   {
     key: "edit_icons",
@@ -533,7 +533,7 @@ function UsersSection({ roles }: { roles: string[] }) {
       if (error) throw error;
       setStaff((data ?? []) as UserRow[]);
     } catch {
-      setError("Couldn't load users — make sure features_schema.sql has been run.");
+      setError("Couldn't load users. Make sure features_schema.sql has been run.");
     }
   }, []);
 
@@ -639,12 +639,12 @@ function UsersSection({ roles }: { roles: string[] }) {
                   users={usersInRole(role)}
                   roles={roles}
                   onAssign={assignRole}
-                  emptyNote="No users with this role yet — search above to assign it."
+                  emptyNote="No users with this role yet. Search above to assign it."
                 />
               ))}
               {roles.length === 0 && (
                 <p className="text-[13px] italic" style={{ color: "var(--text-muted)", opacity: 0.5 }}>
-                  No roles defined yet — add one in the table above.
+                  No roles defined yet. Add one in the table above.
                 </p>
               )}
             </div>

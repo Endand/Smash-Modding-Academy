@@ -19,7 +19,7 @@ export default function ContributePage() {
           <Editable
             as="p"
             contentKey="contribute_body"
-            fallback="Smash Modding Academy is built by the community, and there's always more to write. A full guide to contributing lessons, fixes and corrections is on the way — in the meantime, come say hello in the Discord."
+            fallback="Smash Modding Academy is built by the community, and there's always more to write. A full guide to contributing lessons, fixes and corrections is on the way. In the meantime, come say hello in the Discord."
             className="text-[15px] leading-relaxed text-[var(--text-muted)]"
           />
         </div>
