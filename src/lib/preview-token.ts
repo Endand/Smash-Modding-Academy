@@ -48,7 +48,7 @@ export type PreviewDuration = "day" | "week" | "forever";
 export const PREVIEW_DURATIONS: { value: PreviewDuration; label: string; ms: number | null }[] = [
   { value: "day",     label: "1 day",     ms: 24 * 60 * 60 * 1000 },
   { value: "week",    label: "1 week",    ms: 7 * 24 * 60 * 60 * 1000 },
-  { value: "forever", label: "No expiry", ms: null },
+  { value: "forever", label: "Forever",   ms: null },
 ];
 
 export function buildStoredToken(token: string, ms: number | null, now = Date.now()): string {
