@@ -55,6 +55,33 @@ export function groupIntoBatches(rows: Revision[]): RevisionBatch[] {
   return [...byBatch.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+// A course's review queue spans many lessons, so batches are clustered by the
+// lesson they belong to. `lessonKey: null` collects the course's own keys
+// (title, description, section order) which belong to no single lesson.
+export interface LessonGroup {
+  lessonKey: string | null;
+  batches: RevisionBatch[];
+  latest: string;
+  count: number;
+}
+
+export function groupBatchesByLesson(batches: RevisionBatch[]): LessonGroup[] {
+  const byLesson = new Map<string, LessonGroup>();
+  for (const b of batches) {
+    const k = b.lessonKey ?? "";
+    let g = byLesson.get(k);
+    if (!g) {
+      g = { lessonKey: b.lessonKey, batches: [], latest: b.createdAt, count: 0 };
+      byLesson.set(k, g);
+    }
+    g.batches.push(b);
+    g.count += b.revisions.length;
+    if (b.createdAt > g.latest) g.latest = b.createdAt;
+  }
+  // Most recently touched lesson first — that's where the reviewer's attention is.
+  return [...byLesson.values()].sort((a, b) => b.latest.localeCompare(a.latest));
+}
+
 // Has the live value moved on since this edit was proposed? Approving would
 // then silently overwrite whatever landed in between, so the reviewer is warned.
 export function isStale(rev: Revision, liveContent: Record<string, string>): boolean {

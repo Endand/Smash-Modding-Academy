@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Check, X, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { Check, X, ChevronDown, ChevronRight, AlertTriangle, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { buildCourseStructure } from "@/lib/courses/course-structure";
+import { getCourseSlug } from "@/lib/courses/course-utils";
 import { useContentContext } from "@/components/content-provider";
 import { useAuth } from "@/components/auth-provider";
 import { canApproveEdits, type EditScope } from "@/hooks/use-permissions";
 import {
   type Revision, type RevisionBatch,
-  groupIntoBatches, describeKey, describeBatch, isStale, isStructuralKey, truncate,
+  groupIntoBatches, groupBatchesByLesson, describeKey, describeBatch, isStale, isStructuralKey, truncate,
 } from "@/lib/revisions";
 
 const SELECT_COLS =
@@ -109,6 +112,22 @@ export function PendingChanges({ scope }: { scope: EditScope }) {
 
   if (!canApprove || rows.length === 0) return null;
   const batches = groupIntoBatches(rows);
+  // On a lesson page everything already belongs to that lesson, so skip the
+  // extra layer; on a course page cluster by lesson and label each one.
+  const groups = lessonKey ? null : groupBatchesByLesson(batches);
+
+  const renderBatch = (b: RevisionBatch) => (
+    <BatchCard
+      key={b.batchId}
+      batch={b}
+      author={names[b.authorId] ?? "someone"}
+      liveContent={liveContent}
+      busy={busy}
+      expanded={!!expanded[b.batchId]}
+      onToggle={() => setExpanded((p) => ({ ...p, [b.batchId]: !p[b.batchId] }))}
+      onReview={review}
+    />
+  );
 
   return (
     <div
@@ -123,25 +142,71 @@ export function PendingChanges({ scope }: { scope: EditScope }) {
         {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         {rows.length} change{rows.length === 1 ? "" : "s"} awaiting review
         <span className="ml-auto opacity-60">
-          {batches.length} edit{batches.length === 1 ? "" : "s"}
+          {groups
+            ? `${groups.length} lesson${groups.length === 1 ? "" : "s"}`
+            : `${batches.length} edit${batches.length === 1 ? "" : "s"}`}
         </span>
       </button>
 
       {open && (
-        <div className="px-4 pb-4 flex flex-col gap-3">
-          {batches.map((b) => (
-            <BatchCard
-              key={b.batchId}
-              batch={b}
-              author={names[b.authorId] ?? "someone"}
-              liveContent={liveContent}
-              busy={busy}
-              expanded={!!expanded[b.batchId]}
-              onToggle={() => setExpanded((p) => ({ ...p, [b.batchId]: !p[b.batchId] }))}
-              onReview={review}
-            />
-          ))}
+        <div className="px-4 pb-4 flex flex-col gap-4">
+          {groups
+            ? groups.map((g) => (
+                <div key={g.lessonKey ?? "__course__"} className="flex flex-col gap-2">
+                  <LessonGroupHeader
+                    lessonKey={g.lessonKey}
+                    count={g.count}
+                    edits={g.batches.length}
+                    courseId={courseId!}
+                  />
+                  {g.batches.map(renderBatch)}
+                </div>
+              ))
+            : batches.map(renderBatch)}
         </div>
+      )}
+    </div>
+  );
+}
+
+// Names the lesson a cluster of changes belongs to, and links straight to it.
+function LessonGroupHeader({
+  lessonKey, count, edits, courseId,
+}: {
+  lessonKey: string | null;
+  count: number;
+  edits: number;
+  courseId: string;
+}) {
+  const { liveContent } = useContentContext();
+
+  // Structure and slugs come from live content — the router resolves URLs
+  // against the database, so an unapproved slug must not be used here.
+  const lesson = lessonKey
+    ? buildCourseStructure(courseId, liveContent).allLessons.find((l) => l.lessonKey === lessonKey)
+    : null;
+  const title = lessonKey
+    ? (liveContent[`${lessonKey}_title`] ?? lesson?.titleFallback ?? "Untitled lesson")
+    : "Course page";
+  const courseSlug = getCourseSlug(courseId, liveContent);
+
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <span className="font-mono text-[9px] uppercase tracking-widest truncate" style={{ color: "var(--text)" }}>
+        {title}
+      </span>
+      <span className="font-mono text-[9px] uppercase tracking-widest shrink-0 opacity-50" style={{ color: "var(--text-muted)" }}>
+        {count} change{count === 1 ? "" : "s"} · {edits} edit{edits === 1 ? "" : "s"}
+      </span>
+      <div className="flex-1 h-px min-w-4" style={{ background: "var(--border-color)" }} />
+      {lesson && (
+        <Link
+          href={`/courses/${courseSlug}/${lesson.slug}`}
+          className="shrink-0 flex items-center gap-1 px-2 py-1 font-mono text-[9px] uppercase tracking-widest rounded-[var(--radius-button)] transition-colors hover:brightness-125"
+          style={{ color: "var(--accent-medium)", border: "1px solid var(--accent-medium)" }}
+        >
+          Open lesson <ArrowRight size={9} />
+        </Link>
       )}
     </div>
   );
