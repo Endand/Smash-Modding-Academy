@@ -59,21 +59,18 @@ export default function SupportPage() {
           />
 
           {/* Primary call to action */}
-          <div className="flex flex-wrap items-center gap-3 mb-14">
+          <div className="mb-14">
             <a
               href={KOFI_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2.5 px-7 py-3.5 text-[15px] rounded-[var(--radius-button)] transition-transform hover:scale-[1.02]"
+              className="inline-flex items-center gap-2.5 px-7 py-3.5 text-[15px] rounded-[var(--radius-button)] transition-transform hover:scale-[1.02]"
               style={{ background: "var(--accent)", color: "#fff", border: "1px solid var(--accent)" }}
             >
               <Heart size={16} strokeWidth={2} />
               Donate now
               <ArrowRight size={16} strokeWidth={2} />
             </a>
-            <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] opacity-60">
-              Pay what you want · no account needed
-            </span>
           </div>
 
           {/* Where the money goes */}

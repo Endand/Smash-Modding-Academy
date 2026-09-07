@@ -95,8 +95,7 @@ export function Nav() {
             </Link>
             <Link
               href="/support"
-              className="font-mono text-[11px] uppercase tracking-widest transition-colors"
-              style={{ color: "var(--accent-medium)" }}
+              className="font-mono text-[11px] uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
             >
               Support Us
             </Link>
