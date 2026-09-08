@@ -39,6 +39,8 @@ interface ContentContextValue {
   liveContent: ContentMap;
   /** Writes straight to site_content. RevisionGate swaps this for proposeChange. */
   updateContent: (key: string, value: string) => Promise<void>;
+  /** Same, for several keys at once, as one request. */
+  updateMany: (entries: [string, string][]) => Promise<void>;
   /** Queues a change for approval instead of publishing it. */
   proposeChange: (key: string, value: string, scope: ProposeScope) => Promise<void>;
   /** The viewer's own pending edits, by content key. */
@@ -49,6 +51,7 @@ export const ContentContext = createContext<ContentContextValue>({
   content: {},
   liveContent: {},
   updateContent: async () => {},
+  updateMany: async () => {},
   proposeChange: async () => {},
   pending: {},
 });
@@ -165,27 +168,36 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
     return merged;
   }, [liveContent, pending]);
 
-  const updateContent = useCallback(async (key: string, value: string) => {
-    const supabase = createClient();
-
-    // Title edits also sync the matching course/lesson URL slug
-    const writes: [string, string][] = [
-      [key, value],
-      ...computeSlugSync(key, value, contentRef.current),
-    ];
+  // One write for however many keys. Creating a course or a project touches
+  // eight to thirteen keys at once; sending those as separate requests meant
+  // eight clients each doing their own auth round trip, which was slow, could
+  // fail under the contention, and could leave a half-created course behind if
+  // some landed and others didn't. As a single upsert it either all applies or
+  // none of it does.
+  const writeMany = useCallback(async (entries: [string, string][]) => {
+    // Title edits also sync the matching course/lesson URL slug. A Map keyed by
+    // content key also removes duplicates: Postgres rejects an upsert that
+    // tries to touch the same row twice in one statement.
+    const writes = new Map<string, string>();
+    for (const [key, value] of entries) {
+      writes.set(key, value);
+      for (const [k, v] of computeSlugSync(key, value, contentRef.current)) writes.set(k, v);
+    }
+    const list = [...writes.entries()];
+    if (list.length === 0) return;
 
     setLiveContent((prev) => {
       const next = { ...prev };
-      for (const [k, v] of writes) next[k] = v;
+      for (const [k, v] of list) next[k] = v;
       return next;
     });
 
     try {
-      const { data: { user: u } } = await supabase.auth.getUser();
+      const supabase = createClient();
       const now = new Date().toISOString();
       const { error } = await withTimeout(
         supabase.from("site_content").upsert(
-          writes.map(([k, v]) => ({ key: k, value: v, updated_at: now, updated_by: u?.id ?? null })),
+          list.map(([k, v]) => ({ key: k, value: v, updated_at: now, updated_by: userIdRef.current })),
           { onConflict: "key" }
         )
       );
@@ -196,6 +208,16 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
       setSaveFailed(true);
     }
   }, []);
+
+  const updateContent = useCallback(
+    (key: string, value: string) => writeMany([[key, value]]),
+    [writeMany]
+  );
+
+  const updateMany = useCallback(
+    (entries: [string, string][]) => writeMany(entries),
+    [writeMany]
+  );
 
   // ── Proposals ──────────────────────────────────────────────────────────────
   // Every updateContent call inside one click lands in the same microtask, so
@@ -286,8 +308,8 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
   }, [flushProposals]);
 
   const value = useMemo(
-    () => ({ content, liveContent, updateContent, proposeChange, pending }),
-    [content, liveContent, updateContent, proposeChange, pending]
+    () => ({ content, liveContent, updateContent, updateMany, proposeChange, pending }),
+    [content, liveContent, updateContent, updateMany, proposeChange, pending]
   );
 
   return (

@@ -11,6 +11,7 @@ import { useContentContext } from "@/components/content-provider";
 import { useAuth } from "@/components/auth-provider";
 import { EditAccessManager, RemoveBtn, MyPendingNotice } from "@/components/lesson-content";
 import { PendingChanges } from "@/components/pending-changes";
+import { newCourseId } from "@/lib/courses/categories";
 import { PreviewLinkBtn } from "@/components/preview-link-btn";
 import { hasPreviewGrant, coursePreviewKey, withPreview } from "@/lib/preview-token";
 import { usePermissions, EditScopeProvider, canSeeDrafts, hasAnyEditAccessInCourse, courseAclKey } from "@/hooks/use-permissions";
@@ -239,41 +240,48 @@ function LessonRow({
 // ── Add lesson button ─────────────────────────────────────────────────────────
 
 function AddLessonBtn({ courseId, section }: { courseId: string; section: LiveSection }) {
-  const { content, updateContent } = useContentContext();
+  const { content, updateMany } = useContentContext();
 
   const handleAdd = (kind: "lesson" | "project") => {
-    const ts = Date.now();
-    const lId = `ldyn_${ts}`;
+    const { courseId: dynId, slugSuffix } = newCourseId();
+    const lId = dynId.replace("cdyn_", "ldyn_");
     const lk = `${courseId}_${lId}`;
-    const short = ts.toString().slice(-6);
-    const slug = kind === "project" ? `new-project-${short}` : `new-lesson-${short}`;
+    const slug = kind === "project" ? `new-project-${slugSuffix}` : `new-lesson-${slugSuffix}`;
 
     const currentIds: string[] = parseJSON(
       content[`${section.sectionKey}_lesson_ids`],
       section.lessons.map((l) => l.lessonKey.replace(`${courseId}_`, ""))
     );
-    updateContent(`${section.sectionKey}_lesson_ids`, JSON.stringify([...currentIds, lId]));
-    updateContent(`${lk}_title`, kind === "project" ? "New Project" : "New Lesson");
-    updateContent(`${lk}_status`, "draft");
-    updateContent(`${lk}_icon`, kind === "project" ? "Wrench" : "BookOpen");
-    updateContent(`${lk}_slug`, slug);
-
     const slugMap: Record<string, string> = parseJSON(content[`${courseId}_slug_map`], {});
-    updateContent(`${courseId}_slug_map`, JSON.stringify({ ...slugMap, [slug]: lk }));
+
+    // One request rather than five (or thirteen for a project): a lesson that
+    // only half exists is worse than one that failed to be created at all.
+    const writes: [string, string][] = [
+      [`${section.sectionKey}_lesson_ids`, JSON.stringify([...currentIds, lId])],
+      [`${lk}_title`, kind === "project" ? "New Project" : "New Lesson"],
+      [`${lk}_status`, "draft"],
+      [`${lk}_icon`, kind === "project" ? "Wrench" : "BookOpen"],
+      [`${lk}_slug`, slug],
+      [`${courseId}_slug_map`, JSON.stringify({ ...slugMap, [slug]: lk })],
+    ];
 
     if (kind === "project") {
       // Project template (Odin Project style): overview body + step-by-step assignment
-      updateContent(`${lk}_intro`, "Time to put what you've learned into practice. In this project, you'll build something real from scratch.");
-      updateContent(`${lk}_section_count`, "1");
-      updateContent(`${lk}_s0_heading`, "Overview");
-      updateContent(`${lk}_s0_p0`, "Describe the project here — what the student will build, what the finished result should look like, and which earlier lessons it draws on.");
-      updateContent(`${lk}_s0_para_count`, "1");
-      updateContent(`${lk}_assign_desc`, "Complete the following steps. Don't worry about making it perfect — finishing is what counts.");
-      updateContent(`${lk}_assign_count`, "3");
-      updateContent(`${lk}_assign_0`, "Set up: get the files and tools from the lessons ready.");
-      updateContent(`${lk}_assign_1`, "Build: work through the main task described in the overview.");
-      updateContent(`${lk}_assign_2`, "Share: post your finished result in the SMA Discord for feedback.");
+      writes.push(
+        [`${lk}_intro`, "Time to put what you've learned into practice. In this project, you'll build something real from scratch."],
+        [`${lk}_section_count`, "1"],
+        [`${lk}_s0_heading`, "Overview"],
+        [`${lk}_s0_p0`, "Describe the project here: what the student will build, what the finished result should look like, and which earlier lessons it draws on."],
+        [`${lk}_s0_para_count`, "1"],
+        [`${lk}_assign_desc`, "Complete the following steps. Don't worry about making it perfect, finishing is what counts."],
+        [`${lk}_assign_count`, "3"],
+        [`${lk}_assign_0`, "Set up: get the files and tools from the lessons ready."],
+        [`${lk}_assign_1`, "Build: work through the main task described in the overview."],
+        [`${lk}_assign_2`, "Share: post your finished result in the SMA Discord for feedback."],
+      );
     }
+
+    updateMany(writes);
   };
 
   const btnClass = "flex-1 flex items-center justify-center gap-1.5 px-4 py-2 font-mono text-[10px] uppercase tracking-widest cursor-pointer transition-colors";

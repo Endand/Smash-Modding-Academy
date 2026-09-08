@@ -20,7 +20,7 @@ import {
 } from "@/lib/courses/categories";
 
 export default function CurriculumPage() {
-  const { content, updateContent } = useContentContext();
+  const { content, updateContent, updateMany } = useContentContext();
   const { can, isAdmin } = usePermissions();
   const { profile } = useAuth();
   const canManageCourses = can("manage_courses");
@@ -56,9 +56,11 @@ export default function CurriculumPage() {
     const existing = getCategoryIds(content);
     const id = newCategoryId(name, existing);
 
-    updateContent("curriculum_category_ids", JSON.stringify([...existing, id]));
-    updateContent(categoryTitleKey(id), name);
-    updateContent(categoryCoursesKey(id), "[]");
+    updateMany([
+      ["curriculum_category_ids", JSON.stringify([...existing, id])],
+      [categoryTitleKey(id), name],
+      [categoryCoursesKey(id), "[]"],
+    ]);
     setNewCategoryName("");
     setAddingCategory(false);
   };
@@ -106,7 +108,7 @@ export default function CurriculumPage() {
           {/* Branches */}
           <div className="flex items-center gap-3 mb-5">
             <p className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-              Then choose a path
+              Choose your major
             </p>
             <div className="flex-1 h-px" style={{ background: "var(--border-color)" }} />
           </div>

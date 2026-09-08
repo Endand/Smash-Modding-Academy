@@ -20,7 +20,7 @@ import {
 
 export default function CategoryPage({ params }: { params: Promise<{ category: string }> }) {
   const { category: categoryId } = use(params);
-  const { content, updateContent } = useContentContext();
+  const { content, updateContent, updateMany } = useContentContext();
   const { can, isAdmin } = usePermissions();
   const { profile } = useAuth();
   const canManageCourses = can("manage_courses");
@@ -71,18 +71,20 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
     const { courseId: cId, slugSuffix } = newCourseId();
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 36) || `course-${slugSuffix}`;
 
-    updateContent("curriculum_course_ids", JSON.stringify([...courseIds, cId]));
-    updateContent(getCourseKeys(cId).titleKey, name);
-    updateContent(getCourseKeys(cId).levelKey, "Beginner");
-    updateContent(getCourseKeys(cId).descKey, "Description of this course.");
-    updateContent(`course_${cId}_slug`, slug);
-    updateContent(`course_${cId}_status`, "soon");
-
     const slugMap: Record<string, string> = parseJSON(content["curriculum_slug_map"], {});
-    updateContent("curriculum_slug_map", JSON.stringify({ ...slugMap, [slug]: cId }));
 
-    // Created straight into this category, in last place.
-    saveOrder([...order, cId]);
+    // One request: a course is only half a course if some of these land and
+    // the rest don't. The last entry files it into this category, last place.
+    updateMany([
+      ["curriculum_course_ids", JSON.stringify([...courseIds, cId])],
+      [getCourseKeys(cId).titleKey, name],
+      [getCourseKeys(cId).levelKey, "Beginner"],
+      [getCourseKeys(cId).descKey, "Description of this course."],
+      [`course_${cId}_slug`, slug],
+      [`course_${cId}_status`, "soon"],
+      ["curriculum_slug_map", JSON.stringify({ ...slugMap, [slug]: cId })],
+      [categoryCoursesKey(categoryId), JSON.stringify([...order, cId])],
+    ]);
 
     setNewCourseName("");
     setAdding(false);

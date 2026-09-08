@@ -39,12 +39,18 @@ export function RevisionGate({ scope, children }: { scope: EditScope; children: 
     if (canApprove || courseId === null) return base;
     const lessonFor = (key: string) =>
       lessonKeys.find((lk) => key === lk || key.startsWith(`${lk}_`)) ?? lessonKey;
+    const gated = (key: string, val: string) =>
+      isPreviewTokenKey(key)
+        ? base.updateContent(key, val)
+        : base.proposeChange(key, val, { courseId, lessonKey: lessonFor(key) });
     return {
       ...base,
-      updateContent: (key: string, val: string) =>
-        isPreviewTokenKey(key)
-          ? base.updateContent(key, val)
-          : base.proposeChange(key, val, { courseId, lessonKey: lessonFor(key) }),
+      updateContent: gated,
+      // Routed one key at a time so each lands in the approval queue. They
+      // share a microtask, so they still group into a single batch to review.
+      updateMany: async (entries: [string, string][]) => {
+        await Promise.all(entries.map(([k, v]) => gated(k, v)));
+      },
     };
   }, [base, canApprove, courseId, lessonKey, lessonKeys]);
 
