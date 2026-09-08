@@ -82,11 +82,13 @@ export function Footer() {
       </section>
 
       <footer className="py-14 px-6" style={{ borderTop: "1px solid var(--border-color)" }}>
-        {/* Four even columns rather than the brand at one edge and the links
-            pushed to the other, which left a wide gap down the middle. */}
-        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-10">
+        {/* Four columns rather than the brand at one edge and the links pushed
+            to the other, which left a gap down the middle. The brand column is
+            wider so the name and social icons sit clear of the link columns,
+            which stay evenly spaced among themselves. */}
+        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-[1.6fr_1fr_1fr_1fr] gap-x-8 gap-y-10">
           {/* Brand + socials */}
-          <div className="col-span-2 md:col-span-1">
+          <div className="col-span-2 md:col-span-1 md:pr-8">
             <span className="block text-base font-extralight tracking-wide text-[var(--text)] mb-4">
               Smash Modding Academy
             </span>
