@@ -82,9 +82,11 @@ export function Footer() {
       </section>
 
       <footer className="py-14 px-6" style={{ borderTop: "1px solid var(--border-color)" }}>
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-start gap-10 md:gap-16">
+        {/* Four even columns rather than the brand at one edge and the links
+            pushed to the other, which left a wide gap down the middle. */}
+        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-10">
           {/* Brand + socials */}
-          <div className="shrink-0">
+          <div className="col-span-2 md:col-span-1">
             <span className="block text-base font-extralight tracking-wide text-[var(--text)] mb-4">
               Smash Modding Academy
             </span>
@@ -112,28 +114,25 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Link columns, spread across the remaining width */}
-          <div className="flex-1 flex flex-wrap justify-between gap-10">
-            {COLUMNS.map((col) => (
-              <div key={col.title}>
-                <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--text)] mb-3">
-                  {col.title}
-                </p>
-                <ul className="flex flex-col gap-2">
-                  {col.links.map((l) => (
-                    <li key={l.href}>
-                      <Link
-                        href={l.href}
-                        className="text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
-                      >
-                        {l.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
+          {COLUMNS.map((col) => (
+            <div key={col.title}>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--text)] mb-3">
+                {col.title}
+              </p>
+              <ul className="flex flex-col gap-2">
+                {col.links.map((l) => (
+                  <li key={l.href}>
+                    <Link
+                      href={l.href}
+                      className="text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+                    >
+                      {l.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </footer>
     </>
