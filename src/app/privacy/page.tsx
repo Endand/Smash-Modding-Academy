@@ -8,7 +8,7 @@ const SECTIONS: LegalSectionDef[] = [
     blocks: [
       {
         type: "p",
-        text: "You can browse the entire site anonymously. We do not run analytics, we do not use tracking or advertising cookies, and we do not build a profile of you.",
+        text: "You can browse the entire site anonymously. We do not run analytics and we do not build a profile of you. The Advertising section below covers advertising cookies, which are the one thing that can change without you signing in.",
       },
       {
         type: "p",
@@ -84,11 +84,31 @@ const SECTIONS: LegalSectionDef[] = [
     blocks: [
       {
         type: "p",
-        text: "There is currently no advertising on this site, and no advertising or tracking cookies are set.",
+        text: "There is no advertising on this site today, and no advertising cookies are set.",
       },
       {
         type: "p",
-        text: "We may introduce advertising in future to cover the site's running costs. Advertising providers commonly set their own cookies or similar identifiers and may collect data about your visit in order to select and measure adverts. If and when that happens, we will update this policy to name the provider and describe what they collect, and we will put any consent controls in place that the law requires where you live. That will happen before adverts start appearing, not afterwards.",
+        text: "We intend to introduce advertising to cover the site's running costs, served by Google AdSense. This section describes what that involves, so it is on the record before anything changes rather than after.",
+      },
+      {
+        type: "p",
+        text: "Google is a third party vendor and uses cookies to serve adverts on this site. Google's use of advertising cookies lets it and its partners serve adverts to you based on your visits to this site and to other sites on the internet. Other third party vendors may also set cookies or similar identifiers to select, deliver and measure adverts.",
+      },
+      {
+        type: "list",
+        items: [
+          "You can turn off personalised advertising in [Google Ads Settings](https://myadcenter.google.com/).",
+          "You can opt out of many third party vendors' cookies at [aboutads.info/choices](https://www.aboutads.info/choices/) or [youronlinechoices.eu](https://www.youronlinechoices.eu/).",
+          "Your browser's own settings can block or delete cookies at any time.",
+        ],
+      },
+      {
+        type: "p",
+        text: "Where the law requires your consent before advertising cookies are set, including in the UK and the European Economic Area, we will ask before any advert loads, and you will be able to change your answer afterwards. We do not let advertising partners use the information we hold about your account, and adverts are never targeted using your lesson progress or anything you have written on the site.",
+      },
+      {
+        type: "p",
+        text: "When advertising begins we will update the date at the top of this page and name any provider beyond Google.",
       },
     ],
   },
