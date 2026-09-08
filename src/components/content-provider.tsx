@@ -71,6 +71,9 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
   // Surfaced to the user when a write fails, so silent data loss can't happen
   // unnoticed (the UI shows the optimistic edit even if the save didn't land).
   const [saveFailed, setSaveFailed] = useState(false);
+  // The underlying reason, shown in the banner. Only people who can edit ever
+  // trigger a write, so this is never surfaced to a reader.
+  const [saveError, setSaveError] = useState<string>("");
   // The viewer's own not-yet-approved edits, overlaid so their work is visible
   // to them while it waits for review. Never shown to anyone else.
   const [pendingRows, setPendingRows] = useState<Record<string, PendingEdit>>({});
@@ -203,8 +206,14 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
       );
       if (error) throw error;
       setSaveFailed(false);
+      setSaveError("");
     } catch (err) {
-      console.error("[content] save failed:", err);
+      console.error("[content] save failed:", err, "keys:", list.map(([k]) => k));
+      const e = err as { message?: string; code?: string; details?: string; hint?: string };
+      setSaveError(
+        [e?.code && `[${e.code}]`, e?.message, e?.details, e?.hint].filter(Boolean).join(" ") ||
+          String(err)
+      );
       setSaveFailed(true);
     }
   }, []);
@@ -321,9 +330,16 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
           style={{ background: "#ed4245", color: "#fff", maxWidth: "90vw" }}
           role="alert"
         >
-          <span className="text-[13px]">A change couldn&apos;t be saved. Check your connection, then re-edit to retry.</span>
+          <div className="flex flex-col gap-1 min-w-0">
+            <span className="text-[13px]">A change couldn&apos;t be saved. Check your connection, then re-edit to retry.</span>
+            {saveError && (
+              <span className="font-mono text-[11px] break-words" style={{ opacity: 0.85 }}>
+                {saveError}
+              </span>
+            )}
+          </div>
           <button
-            onClick={() => setSaveFailed(false)}
+            onClick={() => { setSaveFailed(false); setSaveError(""); }}
             className="shrink-0 font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 rounded cursor-pointer"
             style={{ border: "1px solid rgba(255,255,255,0.5)" }}
           >
