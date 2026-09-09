@@ -21,7 +21,9 @@ export const MAX_MEDIA_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB per clip
 // Showcase media is meant to be a handful of shots, not an album.
 export const MAX_MEDIA_ITEMS = 6;
 
-export type MediaKind = "image" | "video";
+// "video" is a file in our own storage; "embed" is a YouTube/Vimeo link the
+// person pasted, which stays on its own host and costs us nothing to serve.
+export type MediaKind = "image" | "video" | "embed";
 
 export interface MediaItem {
   url: string;

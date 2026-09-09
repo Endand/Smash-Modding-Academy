@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Github, Paperclip, Download, Plus, Play, Settings2 } from "lucide-react";
+import { Github, Paperclip, Download, Plus, Play, Settings2, Link2 as LinkIcon } from "lucide-react";
 import { createClient, withTimeout } from "@/lib/supabase/client";
 import { useAuth } from "@/components/auth-provider";
 import { useContentContext } from "@/components/content-provider";
@@ -11,8 +11,10 @@ import { RemoveBtn } from "@/components/remove-btn";
 import {
   uploadToBucket, formatBytes, downloadUrl, mediaKind, maxBytesForKind,
   PROJECT_FILES_BUCKET, MAX_PROJECT_FILE_BYTES, MAX_MEDIA_ITEMS,
+  MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES,
   type MediaItem,
 } from "@/lib/uploads";
+import { videoEmbed } from "@/lib/video-embed";
 import {
   SUBMISSION_FIELDS, fieldMode, fieldModeKey, anyFieldOn,
   type FieldId, type FieldMode,
@@ -67,10 +69,18 @@ function formatDate(iso: string): string {
 function readMedia(value: unknown): MediaItem[] {
   const raw = typeof value === "string" ? safeParse(value) : value;
   if (!Array.isArray(raw)) return [];
-  return raw.filter(
-    (m): m is MediaItem =>
-      !!m && typeof m === "object" && typeof (m as MediaItem).url === "string"
-  );
+  const out: MediaItem[] = [];
+  for (const m of raw) {
+    if (!m || typeof m !== "object") continue;
+    const { url, name, kind } = m as Partial<MediaItem>;
+    if (typeof url !== "string" || !url) continue;
+    out.push({
+      url,
+      name: typeof name === "string" ? name : "",
+      kind: kind === "video" || kind === "embed" ? kind : "image",
+    });
+  }
+  return out;
 }
 
 function safeParse(v: string): unknown {
@@ -379,7 +389,20 @@ function MediaGallery({ items }: { items: MediaItem[] }) {
       {/* minHeight so an image that fails to load leaves a frame rather than
           collapsing the card to nothing. */}
       <div className="w-full flex items-center justify-center" style={{ background: "#000", maxHeight: "26rem", minHeight: "9rem" }}>
-        {current.kind === "video" ? (
+        {current.kind === "embed" ? (
+          <div className="w-full aspect-video">
+            <iframe
+              key={current.url}
+              src={videoEmbed(current.url) ?? ""}
+              title={current.name || "Project video"}
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          </div>
+        ) : current.kind === "video" ? (
           <video
             key={current.url}
             src={current.url}
@@ -410,13 +433,13 @@ function MediaGallery({ items }: { items: MediaItem[] }) {
               className="relative shrink-0 w-14 h-10 overflow-hidden rounded cursor-pointer"
               style={{ border: i === active ? "1px solid var(--accent-medium)" : "1px solid var(--border-color)", background: "#000" }}
             >
-              {m.kind === "video" ? (
-                <span className="w-full h-full flex items-center justify-center" style={{ color: "var(--text-muted)" }}>
-                  <Play size={13} strokeWidth={1.5} />
-                </span>
-              ) : (
+              {m.kind === "image" ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={m.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+              ) : (
+                <span className="w-full h-full flex items-center justify-center" style={{ color: "var(--text-muted)" }}>
+                  {m.kind === "embed" ? <LinkIcon size={12} strokeWidth={1.5} /> : <Play size={13} strokeWidth={1.5} />}
+                </span>
               )}
             </button>
           ))}
@@ -450,6 +473,7 @@ function SubmitBox({
   const [repo, setRepo] = useState("");
   const [notes, setNotes] = useState("");
   const [media, setMedia] = useState<MediaItem[]>([]);
+  const [videoLink, setVideoLink] = useState("");
   const [file, setFile] = useState<{ url: string; name: string; size: number } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -461,6 +485,7 @@ function SubmitBox({
     setRepo(existing?.repo_url ?? "");
     setNotes(existing?.notes ?? "");
     setMedia(readMedia(existing?.media));
+    setVideoLink("");
     setFile(existing?.file_url ? { url: existing.file_url, name: existing.file_name ?? "Attachment", size: 0 } : null);
     setError("");
     setOpen(true);
@@ -535,6 +560,28 @@ function SubmitBox({
     } finally {
       setUploading(false);
     }
+  };
+
+  // Stored as the original link; the embed URL is rebuilt from the video id at
+  // render time, so nothing arbitrary can end up as an iframe src.
+  const addVideoLink = () => {
+    const raw = videoLink.trim();
+    if (!raw) return;
+    if (media.length >= MAX_MEDIA_ITEMS) {
+      setError(`You can add up to ${MAX_MEDIA_ITEMS} items.`);
+      return;
+    }
+    if (!videoEmbed(raw)) {
+      setError("That needs to be a YouTube or Vimeo link. For anything else, upload the clip instead.");
+      return;
+    }
+    if (media.some((m) => m.url === raw)) {
+      setError("That link is already on your solution.");
+      return;
+    }
+    setError("");
+    setMedia((prev) => [...prev, { url: raw, name: "Video link", kind: "embed" }]);
+    setVideoLink("");
   };
 
   const pickFile = async (f: File) => {
@@ -644,16 +691,17 @@ function SubmitBox({
             {media.map((m, i) => (
               <span
                 key={m.url}
+                title={m.name || m.url}
                 className="relative w-16 h-12 overflow-hidden rounded"
                 style={{ border: "1px solid var(--border-color)", background: "#000" }}
               >
-                {m.kind === "video" ? (
-                  <span className="w-full h-full flex items-center justify-center" style={{ color: "var(--text-muted)" }}>
-                    <Play size={14} strokeWidth={1.5} />
-                  </span>
-                ) : (
+                {m.kind === "image" ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={m.url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="w-full h-full flex items-center justify-center" style={{ color: "var(--text-muted)" }}>
+                    {m.kind === "embed" ? <LinkIcon size={14} strokeWidth={1.5} /> : <Play size={14} strokeWidth={1.5} />}
+                  </span>
                 )}
                 <button
                   onClick={() => setMedia((prev) => prev.filter((_, j) => j !== i))}
@@ -682,8 +730,29 @@ function SubmitBox({
             {uploading ? "Uploading…" : media.length ? "Add more" : "Add images or video"}
           </label>
           <span className="text-[11px] opacity-45" style={{ color: "var(--text-muted)" }}>
-            Up to {MAX_MEDIA_ITEMS} items, {formatBytes(10 * 1024 * 1024)} an image, {formatBytes(50 * 1024 * 1024)} a clip
+            Up to {MAX_MEDIA_ITEMS} items, {formatBytes(MAX_MEDIA_IMAGE_BYTES)} an image, {formatBytes(MAX_MEDIA_VIDEO_BYTES)} a clip
           </span>
+        </div>
+
+        {/* A YouTube or Vimeo link instead of an upload, for anyone whose
+            recording is longer than the file limit or already posted. */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            value={videoLink}
+            onChange={(e) => setVideoLink(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addVideoLink(); } }}
+            placeholder="or paste a YouTube or Vimeo link"
+            className="flex-1 min-w-[14rem] px-3 py-1.5 text-[12px] outline-none focus:border-[var(--accent-medium)]"
+            style={inputStyle}
+          />
+          <button
+            onClick={addVideoLink}
+            disabled={!videoLink.trim()}
+            className="shrink-0 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest cursor-pointer rounded-[var(--radius-button)] disabled:opacity-30"
+            style={{ border: "1px solid var(--border-strong)", color: "var(--text-muted)" }}
+          >
+            Add link
+          </button>
         </div>
       </div>
     ),
@@ -803,12 +872,15 @@ function Field({
   optional: boolean;
   children: React.ReactNode;
 }) {
+  // A div, not a label: the showcase and file rows nest their own <label> for
+  // the hidden file input, and nesting labels makes a click on the heading
+  // open the wrong picker.
   return (
-    <label className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5">
       <span className="font-mono text-[9px] uppercase tracking-widest opacity-50" style={{ color: "var(--text-muted)" }}>
         {label}{optional ? " (optional)" : ""}
       </span>
       {children}
-    </label>
+    </div>
   );
 }

@@ -15,6 +15,7 @@ import { getStaticLesson } from "@/lib/courses/foundations-data";
 import { getCourseKeys, getCourseSlug, slugFromTitle, PROJECT_ICONS } from "@/lib/courses/course-utils";
 import { replaceSlugMapEntry } from "@/lib/courses/slug-sync";
 import { renderInline } from "@/lib/inline-markdown";
+import { videoEmbed } from "@/lib/video-embed";
 import { PreviewLinkBtn } from "@/components/preview-link-btn";
 import { hasPreviewGrant, lessonPreviewKey, withPreview } from "@/lib/preview-token";
 import { PendingChanges } from "@/components/pending-changes";
@@ -209,17 +210,6 @@ type BlockType = "text" | "code" | "image" | "quote" | "video" | "file";
 
 // Selectable display widths (% of the content column) for image blocks.
 const IMAGE_WIDTHS = ["25", "50", "75", "100"] as const;
-
-// Parse a YouTube/Vimeo URL into a safe embed URL. The embed is rebuilt from the
-// extracted id (never the raw input), so arbitrary iframe srcs can't be injected.
-function videoEmbed(url: string): string | null {
-  const u = url.trim();
-  const yt = u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
-  const vimeo = u.match(/vimeo\.com\/(?:video\/)?(\d+)/);
-  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
-  return null;
-}
 
 interface Block {
   j: number;

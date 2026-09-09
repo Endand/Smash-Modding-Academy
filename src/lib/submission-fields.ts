@@ -29,7 +29,7 @@ export const SUBMISSION_FIELDS: FieldDef[] = [
     id: "showcase",
     label: "Showcase",
     formLabel: "Showcase",
-    hint: "Screenshots or a clip of it working",
+    hint: "Screenshots, a clip, or a video link",
     fallback: "required",
   },
   {
