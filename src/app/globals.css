@@ -35,6 +35,9 @@
   --shadow-elevated: none;
   --nav-shadow: none;
   --nav-border: 1px solid var(--border-color);
+  /* Native controls the browser draws itself — select popups, scrollbars,
+     date pickers — follow the site's theme instead of the OS default. */
+  color-scheme: dark;
 }
 
 [data-theme="light"] {
@@ -57,6 +60,19 @@
   --shadow-elevated: 0 8px 32px rgba(45, 41, 38, 0.12);
   --nav-shadow: 0 1px 3px rgba(45, 41, 38, 0.06);
   --nav-border: none;
+  color-scheme: light;
+}
+
+/* A dropdown's option list is drawn outside the page. It inherits the
+   select's text colour but not its transparent background, so our light text
+   landed on the browser's white popup and only appeared once the hover
+   highlight painted behind it. Both are set explicitly here.
+   This also overrides the accent colours some selects set on themselves (the
+   status and level pickers): that colour is for the closed control, while the
+   open list needs to stay readable. */
+option {
+  background-color: var(--surface-raised);
+  color: var(--text);
 }
 
 * {
