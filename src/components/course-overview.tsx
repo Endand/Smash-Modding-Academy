@@ -11,10 +11,12 @@ import { useContentContext } from "@/components/content-provider";
 import { useAuth } from "@/components/auth-provider";
 import { EditAccessManager, RemoveBtn, MyPendingNotice } from "@/components/lesson-content";
 import { PendingChanges } from "@/components/pending-changes";
-import { newCourseId } from "@/lib/courses/categories";
+import { newCourseId, buildCategories, categoryOfCourse, getFeaturedCourseId } from "@/lib/courses/categories";
+import { planLessonMove } from "@/lib/courses/move-lesson";
+import { SEED_COURSE_IDS } from "@/lib/courses/course-utils";
 import { PreviewLinkBtn } from "@/components/preview-link-btn";
 import { hasPreviewGrant, coursePreviewKey, withPreview } from "@/lib/preview-token";
-import { usePermissions, EditScopeProvider, canSeeDrafts, hasAnyEditAccessInCourse, courseAclKey } from "@/hooks/use-permissions";
+import { usePermissions, EditScopeProvider, canSeeDrafts, hasAnyEditAccessInCourse, courseAclKey, evalPermission, canApproveEdits } from "@/hooks/use-permissions";
 import {
   useCourseStructure,
   getEffectiveStatus,
@@ -142,11 +144,88 @@ function SectionPicker({
   );
 }
 
+// ── Move-to-course dropdown ───────────────────────────────────────────────────
+// Only offers courses in the same curriculum category, so a coding lesson can
+// move between the coding courses but never into Animation. Unlike a section
+// move this re-keys the lesson, so it asks before doing it.
+
+export interface MoveTarget {
+  courseId: string;
+  title: string;
+}
+
+function CoursePicker({
+  courseId,
+  targets,
+  lessonTitle,
+  onMoveToCourse,
+}: {
+  courseId: string;
+  targets: MoveTarget[];
+  lessonTitle: string;
+  onMoveToCourse: (toCourseId: string) => void;
+}) {
+  const [pending, setPending] = useState<MoveTarget | null>(null);
+  if (targets.length === 0) return null;
+
+  const stop = (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); };
+
+  if (pending) {
+    return (
+      <span className="flex items-center gap-1.5" onClick={stop}>
+        <span className="font-mono text-[9px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+          Move to {pending.title}?
+        </span>
+        <button
+          onClick={(e) => { stop(e); const t = pending; setPending(null); onMoveToCourse(t.courseId); }}
+          title={`Move "${lessonTitle}" to ${pending.title}`}
+          className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded cursor-pointer"
+          style={{ background: "var(--accent)", color: "#fff", border: "1px solid var(--accent)" }}
+        >
+          Move
+        </button>
+        <button
+          onClick={(e) => { stop(e); setPending(null); }}
+          className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded cursor-pointer"
+          style={{ color: "var(--text-muted)", border: "1px solid var(--border-strong)" }}
+        >
+          Cancel
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <div className="relative inline-flex items-center">
+      <select
+        value={courseId}
+        onChange={(e) => {
+          const t = targets.find((x) => x.courseId === e.target.value);
+          if (t) setPending(t);
+          e.target.value = courseId;
+        }}
+        // preventDefault too — inside the lesson row's <Link>, stopPropagation
+        // alone still lets the browser follow the anchor.
+        onClick={stop}
+        title="Move this lesson to another course in the same category"
+        className="appearance-none font-mono text-[9px] uppercase tracking-widest pr-4 pl-1.5 py-0.5 rounded cursor-pointer bg-transparent outline-none max-w-[110px] truncate"
+        style={{ color: "var(--text-muted)", border: "1px solid var(--border-strong)" }}
+      >
+        <option value={courseId}>This course</option>
+        {targets.map((t) => (
+          <option key={t.courseId} value={t.courseId}>{t.title}</option>
+        ))}
+      </select>
+      <ChevronDown size={9} className="absolute right-0.5 pointer-events-none" style={{ color: "var(--text-muted)" }} />
+    </div>
+  );
+}
+
 // ── Lesson row ────────────────────────────────────────────────────────────────
 
 function LessonRow({
   lesson, courseId, courseSlug, isLast, onRemove, onMove, canMoveUp, canMoveDown,
-  sections, sectionId, onMoveToSection,
+  sections, sectionId, onMoveToSection, moveTargets, onMoveToCourse,
 }: {
   lesson: LiveLesson;
   courseId: string;
@@ -159,6 +238,8 @@ function LessonRow({
   sections: LiveSection[];
   sectionId: string;
   onMoveToSection: (toSectionId: string) => void;
+  moveTargets: MoveTarget[];
+  onMoveToCourse: (toCourseId: string) => void;
 }) {
   const { content } = useContentContext();
   const { profile } = useAuth();
@@ -208,6 +289,12 @@ function LessonRow({
       {canCurriculum && (
         <span className="flex items-center gap-0.5 shrink-0 ml-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           <SectionPicker sections={sections} sectionId={sectionId} onMoveToSection={onMoveToSection} />
+          <CoursePicker
+            courseId={courseId}
+            targets={moveTargets}
+            lessonTitle={content[`${lesson.lessonKey}_title`] ?? lesson.titleFallback}
+            onMoveToCourse={onMoveToCourse}
+          />
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMove(-1); }}
             disabled={!canMoveUp}
@@ -363,7 +450,7 @@ function SlugRow({ courseId, courseSlug }: { courseId: string; courseSlug: strin
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function CourseOverview({ courseId }: { courseId: string }) {
-  const { content, updateContent } = useContentContext();
+  const { content, updateContent, updateMany } = useContentContext();
   // Permissions scoped to THIS course — a role-holder can act only if an admin
   // granted them this course.
   const { can, isAdmin, previewGrant, previewToken } = usePermissions({ type: "course", courseId });
@@ -397,6 +484,9 @@ export function CourseOverview({ courseId }: { courseId: string }) {
 
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
+  // Confirmation that a cross-course move landed. The lesson vanishes from this
+  // page when it moves, so without this it just disappears.
+  const [moveNotice, setMoveNotice] = useState<{ text: string; path: string | null } | null>(null);
 
   // Drafts are hidden from non-editors, so leave them out of their counts too
   const countableLessons = allLessons.filter(
@@ -445,6 +535,50 @@ export function CourseOverview({ courseId }: { courseId: string }) {
     updateContent(`${from.sectionKey}_lesson_ids`, JSON.stringify(fromIds));
   };
 
+  // Courses a lesson here may be moved to: the other live courses in this
+  // course's curriculum category, minus any the user cannot manage. A course
+  // in no category (the featured one) has no siblings, so its lessons stay put.
+  const moveTargets: MoveTarget[] = (() => {
+    // Restricted to people who publish directly. A move is one indivisible set
+    // of ~30 writes; sent through the approval queue they would arrive as
+    // separate proposals that a reviewer could approve piecemeal, leaving the
+    // lesson in both courses or in neither.
+    if (!canCurriculum || !canApproveEdits(profile, content, { type: "course", courseId })) return [];
+    const allCourseIds: string[] = parseJSON(content["curriculum_course_ids"], SEED_COURSE_IDS);
+    const live = allCourseIds.filter((id) => content[`course_${id}_deleted`] !== "1");
+    if (courseId === getFeaturedCourseId(content)) return [];
+
+    const categories = buildCategories(content, live);
+    const myCategory = categoryOfCourse(categories, courseId);
+    if (!myCategory) return [];
+
+    return (categories.find((c) => c.id === myCategory)?.courseIds ?? [])
+      .filter((id) => id !== courseId)
+      .filter((id) => evalPermission(profile, content, { type: "course", courseId: id }, "manage_curriculum"))
+      .map((id) => ({ courseId: id, title: content[getCourseKeys(id).titleKey] ?? "Untitled course" }));
+  })();
+
+  // Re-keys the lesson under the destination course and hands over its slug,
+  // in one write. See lib/courses/move-lesson for why a key change is needed.
+  const moveLessonToCourse = (from: LiveSection, lId: string, toCourseId: string) => {
+    const { courseId: dynId } = newCourseId();
+    const plan = planLessonMove({
+      content,
+      fromCourseId: courseId,
+      fromSectionId: from.sectionId,
+      lessonId: lId,
+      toCourseId,
+      newId: dynId.replace("cdyn_", "ldyn_"),
+      newSectionId: dynId.replace("cdyn_", "sdyn_"),
+    });
+    if (!plan) return;
+    updateMany(plan.writes);
+    setMoveNotice({
+      text: `Moved to ${content[getCourseKeys(toCourseId).titleKey] ?? "the other course"}.`,
+      path: plan.newPath,
+    });
+  };
+
   const addSection = () => {
     const name = newSectionName.trim() || "New Section";
     const ts = Date.now();
@@ -488,6 +622,33 @@ export function CourseOverview({ courseId }: { courseId: string }) {
       {/* Approval queue: reviewers see pending edits across this course */}
       <PendingChanges scope={{ type: "course", courseId }} />
       <MyPendingNotice prefix={courseId} />
+
+      {moveNotice && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 mb-6 px-4 py-3"
+          style={{ border: "1px solid var(--accent-medium)", borderRadius: "var(--radius-card)", background: "var(--surface)" }}
+        >
+          <span className="text-[13px]" style={{ color: "var(--text)" }}>{moveNotice.text}</span>
+          <span className="shrink-0 flex items-center gap-2">
+            {moveNotice.path && (
+              <Link
+                href={withPreview(moveNotice.path, previewToken)}
+                className="font-mono text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-[var(--radius-button)]"
+                style={{ color: "var(--accent-medium)", border: "1px solid var(--accent-medium)" }}
+              >
+                Open it
+              </Link>
+            )}
+            <button
+              onClick={() => setMoveNotice(null)}
+              className="font-mono text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-[var(--radius-button)] cursor-pointer"
+              style={{ color: "var(--text-muted)", border: "1px solid var(--border-strong)" }}
+            >
+              Dismiss
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* Course header */}
       <div className="mb-14">
@@ -622,6 +783,8 @@ export function CourseOverview({ courseId }: { courseId: string }) {
                   sections={sections}
                   sectionId={section.sectionId}
                   onMoveToSection={(to) => moveLessonToSection(section, lesson.lessonKey.slice(courseId.length + 1), to)}
+                  moveTargets={moveTargets}
+                  onMoveToCourse={(to) => moveLessonToCourse(section, lesson.lessonKey.slice(courseId.length + 1), to)}
                 />
               ))}
               {canCurriculum && <AddLessonBtn courseId={courseId} section={section} />}
