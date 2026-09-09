@@ -134,6 +134,13 @@ export function planLessonMove({
     writes.push([`${newLk}_${key.slice(oldLk.length + 1)}`, content[key]]);
   }
 
+  // The lesson arrives live. This matters when it is moving back somewhere it
+  // has been before: the destination key still carries the "deleted" flag that
+  // the earlier move out set on it, and nothing else clears it. Without this
+  // the lesson rejoins the section list but the structure builder skips it, so
+  // it vanishes from the course page while its URL still resolves.
+  writes.push([`${newLk}_deleted`, "0"]);
+
   // 2. Slug, and both courses' slug maps. The destination gains an entry, the
   //    source loses every entry pointing at the old key, so its old URL stops
   //    resolving rather than 404ing through a stale map.
