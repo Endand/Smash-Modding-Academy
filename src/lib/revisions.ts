@@ -120,6 +120,8 @@ export function describeKey(key: string): string {
   if (test(/_s\d+_blk\d+_lang$/)) return "Code language";
   if (test(/_s\d+_blk\d+_caption$/)) return "Caption";
   if (test(/_s\d+_blk\d+_width$/)) return "Image size";
+  if (test(/_s\d+_blk\d+_filename$/)) return "Attachment name";
+  if (test(/_s\d+_blk\d+_filesize$/)) return "Attachment size";
   if (test(/_s\d+_blk\d+_type$/)) return "Block type";
   if (test(/_s\d+_blk/)) return "Content block";
   if (test(/_block_ids$/) || test(/_blk_ids$/)) return "Block order";
@@ -137,6 +139,8 @@ export function describeKey(key: string): string {
   if (test(/_res\d+_desc$/)) return "Resource description";
   if (test(/_res_count$/)) return "Resource count";
   if (test(/_preview_token$/)) return "Preview link";
+  if (test(/_submissions_enabled$/)) return "Project submissions";
+  if (test(/_submissions_intro$/)) return "Submissions intro";
   if (test(/_edit_acl$/)) return "Edit access";
 
   return "Content";

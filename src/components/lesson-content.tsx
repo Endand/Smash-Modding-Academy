@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ChevronLeft, ChevronRight, ChevronUp, Plus, X, ChevronDown, Code, Image as ImageIcon, Quote, Check, Copy, Lock, Eye, Pencil, Video, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronUp, Plus, X, ChevronDown, Code, Image as ImageIcon, Quote, Check, Copy, Lock, Eye, Pencil, Video, Clock, Paperclip, Download } from "lucide-react";
 import { useProgress } from "@/components/progress-provider";
 import { Editable } from "@/components/editable-text";
 import { useContentContext } from "@/components/content-provider";
@@ -18,6 +18,12 @@ import { renderInline } from "@/lib/inline-markdown";
 import { PreviewLinkBtn } from "@/components/preview-link-btn";
 import { hasPreviewGrant, lessonPreviewKey, withPreview } from "@/lib/preview-token";
 import { PendingChanges } from "@/components/pending-changes";
+import { RemoveBtn } from "@/components/remove-btn";
+import { ProjectSubmissions } from "@/components/project-submissions";
+import {
+  uploadToBucket, formatBytes, downloadUrl, fileNameFromUrl,
+  LESSON_IMAGES_BUCKET, LESSON_FILES_BUCKET, MAX_LESSON_FILE_BYTES,
+} from "@/lib/uploads";
 
 // ── Shared admin UI ───────────────────────────────────────────────────────────
 
@@ -74,39 +80,9 @@ function MoveBtns({ onMove, canUp, canDown }: { onMove: (dir: -1 | 1) => void; c
   );
 }
 
-// Two-click delete: first click arms it (shows a check + "confirm?" tooltip),
-// second click within 3s actually removes. Prevents one-tap accidents.
-export function RemoveBtn({
-  onClick, title = "Remove", size = "w-5 h-5", vis = "opacity-100 md:opacity-0 md:group-hover:opacity-100",
-}: {
-  onClick: () => void;
-  title?: string;
-  size?: string;
-  vis?: string;
-}) {
-  const [armed, setArmed] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const disarm = () => { if (timer.current) clearTimeout(timer.current); setArmed(false); };
-  const handle = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (armed) { disarm(); onClick(); return; }
-    setArmed(true);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setArmed(false), 3000);
-  };
-  return (
-    <button
-      onClick={handle}
-      onMouseLeave={disarm}
-      title={armed ? "Click again to confirm removal" : title}
-      className={`shrink-0 ${size} ${vis} rounded-full flex items-center justify-center cursor-pointer transition-opacity hover:brightness-110`}
-      style={{ background: "#ed4245", border: "1px solid #ed4245", color: "#fff" }}
-    >
-      {armed ? <Check size={11} strokeWidth={3} /> : <X size={11} strokeWidth={2.5} />}
-    </button>
-  );
-}
+// RemoveBtn now lives in its own module (components that lesson-content renders
+// need it too). Re-exported here so existing imports keep working.
+export { RemoveBtn } from "@/components/remove-btn";
 
 // ── Syntax highlighting ───────────────────────────────────────────────────────
 
@@ -229,7 +205,7 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
 
 // ── Rich content block renderer ───────────────────────────────────────────────
 
-type BlockType = "text" | "code" | "image" | "quote" | "video";
+type BlockType = "text" | "code" | "image" | "quote" | "video" | "file";
 
 // Selectable display widths (% of the content column) for image blocks.
 const IMAGE_WIDTHS = ["25", "50", "75", "100"] as const;
@@ -356,27 +332,43 @@ function CopyCodeBtn({ code }: { code: string }) {
   );
 }
 
-// ── Image upload to Supabase Storage ──────────────────────────────────────────
+// ── Upload to Supabase Storage ────────────────────────────────────────────────
 
-function ImageUploadBtn({ onUploaded }: { onUploaded: (url: string) => void }) {
+// Shared by the image block (bucket: lesson-images) and the attachment block
+// (bucket: lesson-files). The upload itself lands in storage immediately for
+// everyone who can edit; only the content key that points at it goes through
+// the approval queue, exactly as image URLs already do.
+function UploadBtn({
+  bucket,
+  accept,
+  maxBytes,
+  folder,
+  label = "Upload",
+  onUploaded,
+}: {
+  bucket: string;
+  accept?: string;
+  maxBytes?: number;
+  folder?: string;
+  label?: string;
+  onUploaded: (file: { url: string; name: string; size: number }) => void;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
 
   const handleFile = async (file: File) => {
+    if (maxBytes && file.size > maxBytes) {
+      alert(`That file is ${formatBytes(file.size)}. The limit is ${formatBytes(maxBytes)}.`);
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
     setBusy(true);
     try {
-      const supabase = createClient();
-      const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error } = await supabase.storage
-        .from("lesson-images")
-        .upload(path, file, { cacheControl: "31536000" });
-      if (error) throw error;
-      const { data } = supabase.storage.from("lesson-images").getPublicUrl(path);
-      onUploaded(data.publicUrl);
+      onUploaded(await uploadToBucket(bucket, file, folder));
     } catch (err) {
       console.error("[upload] failed:", err);
-      alert("Image upload failed. Check that the lesson-images bucket exists.");
+      const msg = (err as { message?: string })?.message ?? "";
+      alert(`Upload failed${msg ? `: ${msg}` : ""}. Check that the ${bucket} bucket exists.`);
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -388,7 +380,7 @@ function ImageUploadBtn({ onUploaded }: { onUploaded: (url: string) => void }) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={accept}
         className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
       />
@@ -398,7 +390,7 @@ function ImageUploadBtn({ onUploaded }: { onUploaded: (url: string) => void }) {
         className="shrink-0 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest cursor-pointer rounded-[var(--radius-tag)] transition-opacity hover:opacity-100 opacity-60 disabled:opacity-30"
         style={{ border: "1px solid var(--border-strong)", color: "var(--text-muted)" }}
       >
-        {busy ? "Uploading…" : "Upload"}
+        {busy ? "Uploading…" : label}
       </button>
     </>
   );
@@ -425,7 +417,7 @@ function BlockRenderer({
   canMoveUp: boolean;
   canMoveDown: boolean;
 }) {
-  const { content, updateContent } = useContentContext();
+  const { content, updateContent, updateMany } = useContentContext();
   const prefix = `${lk}_s${si}_blk${block.j}`;
   const blockContent = content[`${prefix}_content`] ?? "";
   const lang = content[`${prefix}_lang`] ?? "";
@@ -519,7 +511,11 @@ function BlockRenderer({
               className="font-mono text-[10px] flex-1 truncate"
               style={{ color: "var(--text-muted)" }}
             />
-            <ImageUploadBtn onUploaded={(publicUrl) => updateContent(`${prefix}_content`, publicUrl)} />
+            <UploadBtn
+              bucket={LESSON_IMAGES_BUCKET}
+              accept="image/*"
+              onUploaded={(f) => updateContent(`${prefix}_content`, f.url)}
+            />
           </div>
         )}
         {canEdit && hasImage && (
@@ -622,6 +618,97 @@ function BlockRenderer({
     );
   }
 
+  if (block.type === "file") {
+    const url = blockContent;
+    // Filename and size are stored alongside the URL so the card can label
+    // itself without a HEAD request. Older rows fall back to the URL's own
+    // last path segment.
+    const storedName = content[`${prefix}_filename`] ?? "";
+    const name = storedName || fileNameFromUrl(url) || "Attachment";
+    const size = Number(content[`${prefix}_filesize`] ?? "");
+    const ext = (name.split(".").pop() ?? "").toUpperCase().slice(0, 5);
+    const meta = [ext && ext !== name.toUpperCase() ? ext : "", formatBytes(size)].filter(Boolean).join(" · ");
+
+    return (
+      <div className="group relative">
+        {controls}
+        {canEdit && (
+          <div className="flex items-center gap-2 mb-2">
+            <span className="font-mono text-[9px] uppercase tracking-widest opacity-40" style={{ color: "var(--text-muted)" }}>
+              File:
+            </span>
+            <Editable
+              as="span"
+              contentKey={`${prefix}_content`}
+              fallback=""
+              className="font-mono text-[10px] flex-1 truncate"
+              style={{ color: "var(--text-muted)" }}
+            />
+            <UploadBtn
+              bucket={LESSON_FILES_BUCKET}
+              maxBytes={MAX_LESSON_FILE_BYTES}
+              folder={lk}
+              onUploaded={(f) =>
+                updateMany([
+                  [`${prefix}_content`, f.url],
+                  [`${prefix}_filename`, f.name],
+                  [`${prefix}_filesize`, String(f.size)],
+                ])
+              }
+            />
+          </div>
+        )}
+        {url ? (
+          <a
+            href={downloadUrl(url, name)}
+            download={name}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3.5 px-4 py-3.5 no-underline transition-colors hover:border-[var(--accent-medium)]"
+            style={{
+              border: "1px solid var(--border-color)",
+              borderRadius: "var(--radius-card)",
+              background: "var(--surface)",
+            }}
+          >
+            <Paperclip size={16} strokeWidth={1.5} className="shrink-0" style={{ color: "var(--accent-medium)" }} />
+            <span className="flex-1 min-w-0">
+              <span className="block text-[13.5px] truncate" style={{ color: "var(--text)" }}>
+                {content[`${prefix}_caption`] || name}
+              </span>
+              <span className="block font-mono text-[10px] uppercase tracking-widest mt-0.5 opacity-50" style={{ color: "var(--text-muted)" }}>
+                {meta || "Download"}
+              </span>
+            </span>
+            <Download size={15} strokeWidth={1.5} className="shrink-0" style={{ color: "var(--text-muted)" }} />
+          </a>
+        ) : (
+          <div
+            className="flex flex-col items-center justify-center gap-2 py-10 rounded-[var(--radius-card)]"
+            style={{ border: "1px dashed var(--border-strong)", color: "var(--text-muted)", opacity: 0.45 }}
+          >
+            <Paperclip size={22} strokeWidth={1} />
+            {canEdit && <span className="text-[11px]">Upload a file, or paste a link above</span>}
+          </div>
+        )}
+        {canEdit && (
+          <div className="mt-2 flex items-center gap-2">
+            <span className="font-mono text-[9px] uppercase tracking-widest opacity-40 shrink-0" style={{ color: "var(--text-muted)" }}>
+              Label:
+            </span>
+            <Editable
+              as="span"
+              contentKey={`${prefix}_caption`}
+              fallback="Attachment name shown to readers (optional)"
+              className="text-[11px] flex-1 truncate"
+              style={{ color: "var(--text-muted)" }}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (block.type === "quote") {
     return (
       <div className="group relative">
@@ -686,6 +773,7 @@ function AddBlockMenu({
     { type: "code", label: "Code Block", icon: <Code size={11} /> },
     { type: "image", label: "Image", icon: <ImageIcon size={11} /> },
     { type: "video", label: "Video", icon: <Video size={11} /> },
+    { type: "file", label: "File", icon: <Paperclip size={11} /> },
     { type: "quote", label: "Quote", icon: <Quote size={11} /> },
   ];
 
@@ -1664,7 +1752,14 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
           )}
           {canAddItems && <AddBtn label="Add Step" onClick={addAssignItem} />}
         </div>
-      ) : (
+      ) : null}
+
+      {/* ── Project submissions (projects only) ──────────── */}
+      {isProject && (
+        <ProjectSubmissions lessonKey={lk} courseId={courseId} canManage={canAddItems} />
+      )}
+
+      {!isProject && (
         <div className="mb-14">
           <SectionLabel label="Assignment" />
           {assignItems.length > 0 ? (
