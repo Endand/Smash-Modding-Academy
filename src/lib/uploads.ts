@@ -15,7 +15,33 @@ export const PROJECT_FILES_BUCKET = "project-files";
 // supabase/storage_schema.sql); checking here just gives a useful message
 // instead of an opaque 413.
 export const MAX_LESSON_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
-export const MAX_PROJECT_FILE_BYTES = 25 * 1024 * 1024; // 25 MB
+export const MAX_PROJECT_FILE_BYTES = 25 * 1024 * 1024; // 25 MB, the built mod
+export const MAX_MEDIA_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB per screenshot
+export const MAX_MEDIA_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB per clip
+// Showcase media is meant to be a handful of shots, not an album.
+export const MAX_MEDIA_ITEMS = 6;
+
+export type MediaKind = "image" | "video";
+
+export interface MediaItem {
+  url: string;
+  name: string;
+  kind: MediaKind;
+}
+
+const VIDEO_EXT = /\.(mp4|webm|mov|m4v|ogv)$/i;
+
+// A file's MIME type is the reliable signal at upload time; the extension is
+// the fallback for media already stored, where only the URL survives.
+export function mediaKind(file: { type?: string; name: string }): MediaKind {
+  if (file.type?.startsWith("video/")) return "video";
+  if (file.type?.startsWith("image/")) return "image";
+  return VIDEO_EXT.test(file.name) ? "video" : "image";
+}
+
+export function maxBytesForKind(kind: MediaKind): number {
+  return kind === "video" ? MAX_MEDIA_VIDEO_BYTES : MAX_MEDIA_IMAGE_BYTES;
+}
 
 export interface UploadedFile {
   url: string;

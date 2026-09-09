@@ -5,7 +5,9 @@
 --   1. Two storage buckets: `lesson-files` (attachments staff put in a lesson)
 --      and `project-files` (builds learners post on a project).
 --   2. `project_submissions` — one row per person per project lesson, holding
---      their repository link, an optional showcase link and an optional file.
+--      their showcase media, a repository link and an optional project file.
+--      Which of those a project asks for, and which are compulsory, is set per
+--      lesson in the site content rather than here.
 --
 -- Everything here is ADDITIVE. It creates new buckets, a new table and new
 -- policies, and touches nothing that already exists, so running it cannot
@@ -23,9 +25,11 @@ INSERT INTO storage.buckets (id, name, public, file_size_limit)
 VALUES ('lesson-files', 'lesson-files', true, 52428800)   --  50 MB
 ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = 52428800;
 
+-- 50 MB covers the largest thing anyone posts here, a showcase clip. The app
+-- applies tighter per-kind caps on top: 10 MB an image, 25 MB a project file.
 INSERT INTO storage.buckets (id, name, public, file_size_limit)
-VALUES ('project-files', 'project-files', true, 26214400) --  25 MB
-ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = 26214400;
+VALUES ('project-files', 'project-files', true, 52428800) --  50 MB
+ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = 52428800;
 
 -- Anyone, signed in or not, may download from either bucket.
 DROP POLICY IF EXISTS "lesson_files_public_read" ON storage.objects;
@@ -103,8 +107,8 @@ CREATE TABLE IF NOT EXISTS public.project_submissions (
   course_id  text,                       -- for grouping and future moderation views
   user_id    uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   username   text,                       -- filled by trigger; never trusted from the client
-  repo_url   text        NOT NULL,
-  live_url   text,
+  repo_url   text,                       -- nullable: a project may not ask for one
+  media      jsonb       NOT NULL DEFAULT '[]'::jsonb,  -- showcase images and clips
   file_url   text,
   file_name  text,
   notes      text,
@@ -112,6 +116,13 @@ CREATE TABLE IF NOT EXISTS public.project_submissions (
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT project_submissions_one_per_lesson UNIQUE (lesson_key, user_id)
 );
+
+-- Brings a table created by the first version of this file up to date. Each
+-- statement is a no-op if it has already been applied.
+ALTER TABLE public.project_submissions
+  ADD COLUMN IF NOT EXISTS media jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.project_submissions
+  ALTER COLUMN repo_url DROP NOT NULL;
 
 CREATE INDEX IF NOT EXISTS project_submissions_lesson
   ON public.project_submissions (lesson_key, created_at DESC);

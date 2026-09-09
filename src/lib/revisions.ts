@@ -141,6 +141,7 @@ export function describeKey(key: string): string {
   if (test(/_preview_token$/)) return "Preview link";
   if (test(/_submissions_enabled$/)) return "Project submissions";
   if (test(/_submissions_intro$/)) return "Submissions intro";
+  if (test(/_sub_(showcase|repo|file|notes)$/)) return "Submission field";
   if (test(/_edit_acl$/)) return "Edit access";
 
   return "Content";
