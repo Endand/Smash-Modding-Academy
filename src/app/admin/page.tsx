@@ -523,6 +523,7 @@ function UsersSection({ roles }: { roles: string[] }) {
   const [results, setResults] = useState<UserRow[]>([]);
 
   const loadStaff = useCallback(async () => {
+    setError(null);
     try {
       const supabase = createClient();
       const { data, error } = await supabase
@@ -532,8 +533,13 @@ function UsersSection({ roles }: { roles: string[] }) {
         .order("username");
       if (error) throw error;
       setStaff((data ?? []) as UserRow[]);
-    } catch {
-      setError("Couldn't load users. Make sure features_schema.sql has been run.");
+    } catch (err) {
+      // Show the real reason. The old message blamed a missing migration for
+      // every failure, including an expired session or a dropped connection.
+      console.error("[admin] loading staff failed:", err);
+      const e = err as { message?: string; code?: string };
+      const detail = [e?.code && `[${e.code}]`, e?.message].filter(Boolean).join(" ") || String(err);
+      setError(`Couldn't load the staff list: ${detail}`);
     }
   }, []);
 
@@ -570,6 +576,8 @@ function UsersSection({ roles }: { roles: string[] }) {
       loadStaff();
     } catch (err) {
       console.error("[admin] role assignment failed:", err);
+      const e = err as { message?: string; code?: string };
+      setError(`Couldn't assign that role: ${[e?.code && `[${e.code}]`, e?.message].filter(Boolean).join(" ") || String(err)}`);
     }
   };
 
@@ -585,10 +593,18 @@ function UsersSection({ roles }: { roles: string[] }) {
       </p>
 
       {error && (
-        <p className="text-[12px] font-mono" style={{ color: "var(--accent-medium)" }}>{error}</p>
+        <p className="text-[12px] font-mono mb-4" style={{ color: "#ed4245" }}>
+          {error}{" "}
+          <button onClick={loadStaff} className="underline cursor-pointer" style={{ color: "var(--text-muted)" }}>
+            Retry
+          </button>
+        </p>
       )}
 
-      {staff && (
+      {/* Search runs its own query, so it stays usable even when the staff
+          list failed to load. Hiding it made one failed request block every
+          role assignment. */}
+      {(staff || error) && (
         <>
           {/* Search */}
           <div
