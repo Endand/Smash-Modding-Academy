@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { createClient, withTimeout } from "@/lib/supabase/client";
+import { createClient, withTimeout, withRetry } from "@/lib/supabase/client";
 import { computeSlugSync } from "@/lib/courses/slug-sync";
 import { useAuth } from "@/components/auth-provider";
 import type { Revision } from "@/lib/revisions";
@@ -198,7 +198,9 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
     try {
       const supabase = createClient();
       const now = new Date().toISOString();
-      const { error } = await withTimeout(
+      // Retried: a request aborted by the auth lock never reached the server,
+      // and an upsert is safe to repeat anyway.
+      const { error } = await withRetry(() =>
         supabase.from("site_content").upsert(
           list.map(([k, v]) => ({ key: k, value: v, updated_at: now, updated_by: userIdRef.current })),
           { onConflict: "key" }
@@ -254,7 +256,7 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
       // costs one round trip instead of two.
       const resubmitted = entries.map(([k]) => k).filter((k) => pendingRef.current[k]);
       if (resubmitted.length > 0) {
-        const { error: delErr } = await withTimeout(
+        const { error: delErr } = await withRetry(() =>
           supabase.from("content_revisions")
             .delete()
             .eq("author_id", authorId)
@@ -264,7 +266,7 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
         if (delErr) throw delErr;
       }
 
-      const { error: insErr } = await withTimeout(
+      const { error: insErr } = await withRetry(() =>
         supabase.from("content_revisions").insert(
           entries.map(([k, v]) => ({
             key: k,

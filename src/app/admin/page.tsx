@@ -7,7 +7,7 @@ import { Nav } from "@/components/nav";
 import { useAuth } from "@/components/auth-provider";
 import { useContentContext } from "@/components/content-provider";
 import { usePermissions, rolePermKey } from "@/hooks/use-permissions";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, withRetry } from "@/lib/supabase/client";
 import { roleColor, ADMIN_COLOR } from "@/lib/role-color";
 
 // ── Permission definitions ────────────────────────────────────────────────────
@@ -526,11 +526,13 @@ function UsersSection({ roles }: { roles: string[] }) {
     setError(null);
     try {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, username, is_admin, role")
-        .or("is_admin.eq.true,role.not.is.null")
-        .order("username");
+      const { data, error } = await withRetry(() =>
+        supabase
+          .from("profiles")
+          .select("id, username, is_admin, role")
+          .or("is_admin.eq.true,role.not.is.null")
+          .order("username")
+      );
       if (error) throw error;
       setStaff((data ?? []) as UserRow[]);
     } catch (err) {
