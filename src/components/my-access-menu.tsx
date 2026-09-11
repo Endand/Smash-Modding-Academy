@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
 import { roleColor } from "@/lib/role-color";
 
-// The role badge in the nav — links to the full /my-access page.
-// Only non-admin role-holders get it (admins have the Admin link instead).
+// The role badge in the nav — links to the full /my-access page. Admins can
+// hold a role as well, and then show both: the Admin link and this badge.
 export function MyAccessMenu() {
   const { profile } = useAuth();
-  if (!profile?.role || profile.is_admin) return null;
+  if (!profile?.role) return null;
   const color = roleColor(profile.role);
 
   return (

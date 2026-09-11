@@ -585,7 +585,8 @@ function UsersSection({ roles }: { roles: string[] }) {
 
   const q = query.trim();
   const admins = (staff ?? []).filter((u) => u.is_admin);
-  const usersInRole = (role: string) => (staff ?? []).filter((u) => !u.is_admin && u.role === role);
+  // Admins can hold a role as well, so an admin with one appears under it too.
+  const usersInRole = (role: string) => (staff ?? []).filter((u) => u.role === role);
 
   return (
     <div className="mt-14">
@@ -719,14 +720,17 @@ function UserRowItem({
       style={{ borderBottom: !isLast ? "1px solid var(--border-color)" : "none" }}
     >
       <span className="text-sm font-mono" style={{ color: "var(--text)" }}>@{user.username}</span>
-      {user.is_admin ? (
-        <span
-          className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-[var(--radius-tag)]"
-          style={{ color: ADMIN_COLOR, border: `1px solid ${ADMIN_COLOR}` }}
-        >
-          Admin
-        </span>
-      ) : (
+      {/* Admin is a flag, not a role, so an admin can hold a role alongside it:
+          the badge and the role picker both show. */}
+      <span className="flex items-center gap-2">
+        {user.is_admin && (
+          <span
+            className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-[var(--radius-tag)]"
+            style={{ color: ADMIN_COLOR, border: `1px solid ${ADMIN_COLOR}` }}
+          >
+            Admin
+          </span>
+        )}
         <div className="relative inline-flex items-center">
           <select
             value={user.role ?? ""}
@@ -746,7 +750,7 @@ function UserRowItem({
           </select>
           <ChevronDown size={8} className="absolute right-1.5 pointer-events-none" style={{ color: "var(--text-muted)" }} />
         </div>
-      )}
+      </span>
     </div>
   );
 }
