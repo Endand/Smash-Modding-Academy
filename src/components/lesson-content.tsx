@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ChevronLeft, ChevronRight, ChevronUp, Plus, X, ChevronDown, Code, Image as ImageIcon, Quote, Check, Copy, Lock, Eye, Pencil, Video, Clock, Paperclip, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronUp, Plus, X, ChevronDown, Code, Image as ImageIcon, Quote, Check, Copy, Lock, Eye, Pencil, Video, Clock, Paperclip, Download, Minus, Table as TableIcon } from "lucide-react";
 import { useProgress } from "@/components/progress-provider";
 import { Editable } from "@/components/editable-text";
 import { useContentContext } from "@/components/content-provider";
@@ -206,7 +206,7 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
 
 // ── Rich content block renderer ───────────────────────────────────────────────
 
-type BlockType = "text" | "code" | "image" | "quote" | "video" | "file";
+type BlockType = "text" | "code" | "image" | "quote" | "video" | "file" | "table";
 
 // Selectable display widths (% of the content column) for image blocks.
 const IMAGE_WIDTHS = ["25", "50", "75", "100"] as const;
@@ -383,6 +383,171 @@ function UploadBtn({
         {busy ? "Uploading…" : label}
       </button>
     </>
+  );
+}
+
+// ── Table block ───────────────────────────────────────────────────────────────
+// Every cell is its own content key (`_cell_<r>_<c>`, plus `_cell_<r>_<c>_img`
+// for an image), so a cell edits like any other text and goes through the same
+// approval path. Resizing only changes `_rows` / `_cols`: cells outside the new
+// size keep their content, so shrinking a table and growing it back restores
+// them rather than losing them.
+
+const TABLE_MAX_ROWS = 20;
+const TABLE_MAX_COLS = 8;
+
+function clampDim(stored: string | undefined, fallback: number, max: number): number {
+  const n = parseInt(stored ?? "", 10);
+  return Number.isFinite(n) ? Math.min(max, Math.max(1, n)) : fallback;
+}
+
+function DimStepper({
+  label, unit, value, max, onChange,
+}: {
+  label: string;
+  unit: string;
+  value: number;
+  max: number;
+  onChange: (next: number) => void;
+}) {
+  const btnClass = "w-5 h-5 rounded flex items-center justify-center cursor-pointer disabled:opacity-25 disabled:cursor-default";
+  const btnStyle: React.CSSProperties = {
+    background: "var(--surface-raised)",
+    border: "1px solid var(--border-strong)",
+    color: "var(--text-muted)",
+  };
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="font-mono text-[9px] uppercase tracking-widest opacity-50" style={{ color: "var(--text-muted)" }}>
+        {label}
+      </span>
+      <button onClick={() => onChange(value - 1)} disabled={value <= 1} title={`Remove a ${unit}`} className={btnClass} style={btnStyle}>
+        <Minus size={10} />
+      </button>
+      <span className="font-mono text-[11px] w-4 text-center" style={{ color: "var(--text)" }}>{value}</span>
+      <button onClick={() => onChange(value + 1)} disabled={value >= max} title={`Add a ${unit}`} className={btnClass} style={btnStyle}>
+        <Plus size={10} />
+      </button>
+    </span>
+  );
+}
+
+function TableCell({ cellKey, canEdit, isHeader }: { cellKey: string; canEdit: boolean; isHeader: boolean }) {
+  const { content, updateContent } = useContentContext();
+  const img = content[`${cellKey}_img`] ?? "";
+  const text = content[cellKey] ?? "";
+  const Tag = isHeader ? "th" : "td";
+  const textStyle: React.CSSProperties = {
+    color: isHeader ? "var(--text)" : "var(--text-muted)",
+    fontWeight: isHeader ? 500 : 400,
+  };
+
+  return (
+    <Tag
+      className="group/cell align-top text-left px-3 py-2"
+      style={{
+        border: "1px solid var(--border-color)",
+        background: isHeader ? "var(--surface)" : undefined,
+        minWidth: "6rem",
+      }}
+    >
+      {img && (
+        <div className="relative mb-1.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={img} alt="" loading="lazy" className="block max-w-full rounded" style={{ maxHeight: "12rem" }} />
+          {canEdit && (
+            <button
+              onClick={() => updateContent(`${cellKey}_img`, "")}
+              title="Remove image"
+              className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center cursor-pointer opacity-100 md:opacity-0 md:group-hover/cell:opacity-100 transition-opacity"
+              style={{ background: "#ed4245", color: "#fff" }}
+            >
+              <X size={9} strokeWidth={2.5} />
+            </button>
+          )}
+        </div>
+      )}
+      {canEdit ? (
+        // Empty fallback and allowEmpty: a blank cell stays blank for readers,
+        // and an editor can clear a cell they no longer need.
+        <Editable
+          as="div"
+          contentKey={cellKey}
+          fallback=""
+          allowEmpty
+          className="min-h-[1.4em] text-[13px] leading-relaxed"
+          style={textStyle}
+        />
+      ) : text ? (
+        <div className="text-[13px] leading-relaxed" style={{ ...textStyle, whiteSpace: "pre-wrap" }}>
+          {renderInline(text)}
+        </div>
+      ) : null}
+      {canEdit && !img && (
+        <span className="mt-1 inline-block opacity-100 md:opacity-0 md:group-hover/cell:opacity-100 transition-opacity">
+          <UploadBtn
+            bucket={LESSON_IMAGES_BUCKET}
+            accept="image/*"
+            label="+ Image"
+            onUploaded={(f) => updateContent(`${cellKey}_img`, f.url)}
+          />
+        </span>
+      )}
+    </Tag>
+  );
+}
+
+function TableBlock({ prefix, canEdit, controls }: { prefix: string; canEdit: boolean; controls: React.ReactNode }) {
+  const { content, updateContent } = useContentContext();
+  const rows = clampDim(content[`${prefix}_rows`], 3, TABLE_MAX_ROWS);
+  const cols = clampDim(content[`${prefix}_cols`], 3, TABLE_MAX_COLS);
+  // The first row is a header unless turned off; it counts towards `rows`.
+  const header = content[`${prefix}_header`] !== "0";
+  const cellKey = (r: number, c: number) => `${prefix}_cell_${r}_${c}`;
+  const colIdx = Array.from({ length: cols }, (_, c) => c);
+  const bodyRows = Array.from({ length: rows }, (_, r) => r).filter((r) => !(header && r === 0));
+
+  return (
+    <div className="group relative">
+      {controls}
+      {canEdit && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-2">
+          <DimStepper label="Rows" unit="row" value={rows} max={TABLE_MAX_ROWS} onChange={(n) => updateContent(`${prefix}_rows`, String(n))} />
+          <DimStepper label="Columns" unit="column" value={cols} max={TABLE_MAX_COLS} onChange={(n) => updateContent(`${prefix}_cols`, String(n))} />
+          <button
+            onClick={() => updateContent(`${prefix}_header`, header ? "0" : "1")}
+            title="Style the first row as column headings"
+            className="font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+            style={header
+              ? { color: "var(--accent-medium)", border: "1px solid var(--accent-medium)" }
+              : { color: "var(--text-muted)", border: "1px solid var(--border-color)" }}
+          >
+            Header row
+          </button>
+        </div>
+      )}
+      {/* Wide tables scroll inside their own box rather than the page. */}
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse" style={{ border: "1px solid var(--border-color)" }}>
+          {header && (
+            <thead>
+              <tr>
+                {colIdx.map((c) => <TableCell key={c} cellKey={cellKey(0, c)} canEdit={canEdit} isHeader />)}
+              </tr>
+            </thead>
+          )}
+          {bodyRows.length > 0 && (
+            <tbody>
+              {bodyRows.map((r) => (
+                <tr key={r}>
+                  {colIdx.map((c) => <TableCell key={c} cellKey={cellKey(r, c)} canEdit={canEdit} isHeader={false} />)}
+                </tr>
+              ))}
+            </tbody>
+          )}
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -699,6 +864,10 @@ function BlockRenderer({
     );
   }
 
+  if (block.type === "table") {
+    return <TableBlock prefix={prefix} canEdit={canEdit} controls={controls} />;
+  }
+
   if (block.type === "quote") {
     return (
       <div className="group relative">
@@ -764,6 +933,7 @@ function AddBlockMenu({
     { type: "image", label: "Image", icon: <ImageIcon size={11} /> },
     { type: "video", label: "Video", icon: <Video size={11} /> },
     { type: "file", label: "File", icon: <Paperclip size={11} /> },
+    { type: "table", label: "Table", icon: <TableIcon size={11} /> },
     { type: "quote", label: "Quote", icon: <Quote size={11} /> },
   ];
 

@@ -122,6 +122,10 @@ export function describeKey(key: string): string {
   if (test(/_s\d+_blk\d+_width$/)) return "Image size";
   if (test(/_s\d+_blk\d+_filename$/)) return "Attachment name";
   if (test(/_s\d+_blk\d+_filesize$/)) return "Attachment size";
+  if (test(/_s\d+_blk\d+_cell_\d+_\d+_img$/)) return "Table cell image";
+  if (test(/_s\d+_blk\d+_cell_\d+_\d+$/)) return "Table cell";
+  if (test(/_s\d+_blk\d+_(rows|cols)$/)) return "Table size";
+  if (test(/_s\d+_blk\d+_header$/)) return "Table header row";
   if (test(/_s\d+_blk\d+_type$/)) return "Block type";
   if (test(/_s\d+_blk/)) return "Content block";
   if (test(/_block_ids$/) || test(/_blk_ids$/)) return "Block order";

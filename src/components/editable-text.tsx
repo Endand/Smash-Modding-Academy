@@ -11,9 +11,12 @@ interface EditableProps {
   as?: keyof React.JSX.IntrinsicElements;
   className?: string;
   style?: React.CSSProperties;
+  /** Let the field be cleared. Off by default: most fields (titles, headings)
+   *  revert when emptied, since a blank one is almost always a slip. */
+  allowEmpty?: boolean;
 }
 
-export function Editable({ contentKey, fallback, as = "span", className, style }: EditableProps) {
+export function Editable({ contentKey, fallback, as = "span", className, style, allowEmpty }: EditableProps) {
   const { can } = usePermissions();
   const { content, updateContent } = useContentContext();
   const value = content[contentKey] ?? fallback;
@@ -29,6 +32,7 @@ export function Editable({ contentKey, fallback, as = "span", className, style }
       className={className}
       style={style}
       onSave={(v) => updateContent(contentKey, v)}
+      allowEmpty={allowEmpty}
     />
   );
 }
@@ -39,9 +43,10 @@ interface AdminFieldProps {
   className?: string;
   style?: React.CSSProperties;
   onSave: (value: string) => void;
+  allowEmpty?: boolean;
 }
 
-function AdminField({ tag, value, className, style, onSave }: AdminFieldProps) {
+function AdminField({ tag, value, className, style, onSave, allowEmpty }: AdminFieldProps) {
   const ref = useRef<HTMLElement | null>(null);
   const isEditing = useRef(false);
   const saved = useRef(value);
@@ -58,7 +63,7 @@ function AdminField({ tag, value, className, style, onSave }: AdminFieldProps) {
     isEditing.current = false;
     // innerText (not textContent) so Shift+Enter line breaks survive as \n
     const next = ref.current?.innerText?.replace(/\n+$/, "").trim() ?? "";
-    if (!next) {
+    if (!next && !allowEmpty) {
       if (ref.current) ref.current.innerText = saved.current;
       return;
     }
@@ -66,7 +71,7 @@ function AdminField({ tag, value, className, style, onSave }: AdminFieldProps) {
       saved.current = next;
       onSave(next);
     }
-  }, [onSave]);
+  }, [onSave, allowEmpty]);
 
   // Wrap the current selection (or caret) in a markdown marker, saved as text
   // so bold/italic/underline persist instead of being lost on blur.
