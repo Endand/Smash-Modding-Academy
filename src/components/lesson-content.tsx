@@ -607,7 +607,7 @@ function BlockRenderer({
   }
 
   if (block.type === "code") {
-    const displayLang = lang || "plaintext";
+    const displayLang = lang || "rust";
     return (
       <div className="group relative">
         {controls}
@@ -620,7 +620,7 @@ function BlockRenderer({
             <Editable
               as="span"
               contentKey={`${prefix}_lang`}
-              fallback="plaintext"
+              fallback="rust"
               className="font-mono text-[10px] uppercase tracking-widest"
               style={{ color: "#72767d" }}
             />
@@ -1493,7 +1493,9 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
     updateContent(`${lk}_s${si}_blk_count`, String(j + 1));
     updateContent(`${lk}_s${si}_blk${j}_type`, type);
     if (type === "text") updateContent(`${lk}_s${si}_blk${j}_content`, "New paragraph…");
-    if (type === "code") { updateContent(`${lk}_s${si}_blk${j}_content`, "// code here"); updateContent(`${lk}_s${si}_blk${j}_lang`, "plaintext"); }
+    // Rust by default: nearly every code sample on this site is a Smash
+    // Ultimate mod, and those are written in Rust.
+    if (type === "code") { updateContent(`${lk}_s${si}_blk${j}_content`, "// code here"); updateContent(`${lk}_s${si}_blk${j}_lang`, "rust"); }
     if (type === "image") updateContent(`${lk}_s${si}_blk${j}_content`, "");
     if (type === "video") updateContent(`${lk}_s${si}_blk${j}_content`, "");
     if (type === "quote") updateContent(`${lk}_s${si}_blk${j}_content`, "Quote text here…");
