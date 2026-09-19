@@ -119,3 +119,24 @@ export function fileNameFromUrl(url: string): string {
     return "";
   }
 }
+
+// Every image on the clipboard. A screen capture arrives as a file called
+// "image.png" (or nothing at all), which is a poor name to store, so those are
+// renamed "screenshot.<ext>". Anything else keeps its name.
+export function imagesFromClipboard(data: DataTransfer | null): File[] {
+  if (!data) return [];
+  const out: File[] = [];
+  for (const item of Array.from(data.items ?? [])) {
+    if (item.kind !== "file" || !item.type.startsWith("image/")) continue;
+    const file = item.getAsFile();
+    if (!file) continue;
+    const generic = !file.name || /^image\.\w+$/i.test(file.name);
+    if (!generic) {
+      out.push(file);
+      continue;
+    }
+    const ext = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
+    out.push(new File([file], `screenshot.${ext}`, { type: file.type }));
+  }
+  return out;
+}

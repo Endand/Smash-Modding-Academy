@@ -21,6 +21,7 @@ import { hasPreviewGrant, lessonPreviewKey, withPreview } from "@/lib/preview-to
 import { PendingChanges } from "@/components/pending-changes";
 import { RemoveBtn } from "@/components/remove-btn";
 import { ProjectSubmissions } from "@/components/project-submissions";
+import { usePasteImages } from "@/hooks/use-paste-images";
 import {
   uploadToBucket, formatBytes, downloadUrl, fileNameFromUrl,
   LESSON_IMAGES_BUCKET, LESSON_FILES_BUCKET, MAX_LESSON_FILE_BYTES,
@@ -324,6 +325,39 @@ function CopyCodeBtn({ code }: { code: string }) {
 
 // ── Upload to Supabase Storage ────────────────────────────────────────────────
 
+// One upload with size check and error reporting, shared by the file picker
+// below and by every place a screenshot can be pasted.
+function useUpload({
+  bucket,
+  maxBytes,
+  folder,
+  onUploaded,
+}: {
+  bucket: string;
+  maxBytes?: number;
+  folder?: string;
+  onUploaded: (file: { url: string; name: string; size: number }) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const upload = async (file: File) => {
+    if (maxBytes && file.size > maxBytes) {
+      alert(`That file is ${formatBytes(file.size)}. The limit is ${formatBytes(maxBytes)}.`);
+      return;
+    }
+    setBusy(true);
+    try {
+      onUploaded(await uploadToBucket(bucket, file, folder));
+    } catch (err) {
+      console.error("[upload] failed:", err);
+      const msg = (err as { message?: string })?.message ?? "";
+      alert(`Upload failed${msg ? `: ${msg}` : ""}. Check that the ${bucket} bucket exists.`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, upload };
+}
+
 // Shared by the image block (bucket: lesson-images) and the attachment block
 // (bucket: lesson-files). The upload itself lands in storage immediately for
 // everyone who can edit; only the content key that points at it goes through
@@ -344,26 +378,7 @@ function UploadBtn({
   onUploaded: (file: { url: string; name: string; size: number }) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-
-  const handleFile = async (file: File) => {
-    if (maxBytes && file.size > maxBytes) {
-      alert(`That file is ${formatBytes(file.size)}. The limit is ${formatBytes(maxBytes)}.`);
-      if (inputRef.current) inputRef.current.value = "";
-      return;
-    }
-    setBusy(true);
-    try {
-      onUploaded(await uploadToBucket(bucket, file, folder));
-    } catch (err) {
-      console.error("[upload] failed:", err);
-      const msg = (err as { message?: string })?.message ?? "";
-      alert(`Upload failed${msg ? `: ${msg}` : ""}. Check that the ${bucket} bucket exists.`);
-    } finally {
-      setBusy(false);
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  };
+  const { busy, upload } = useUpload({ bucket, maxBytes, folder, onUploaded });
 
   return (
     <>
@@ -372,7 +387,11 @@ function UploadBtn({
         type="file"
         accept={accept}
         className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+        onChange={async (e) => {
+          const f = e.target.files?.[0];
+          if (f) await upload(f);
+          if (inputRef.current) inputRef.current.value = "";
+        }}
       />
       <button
         onClick={() => inputRef.current?.click()}
@@ -383,6 +402,107 @@ function UploadBtn({
         {busy ? "Uploading…" : label}
       </button>
     </>
+  );
+}
+
+// ── Image block ───────────────────────────────────────────────────────────────
+// Its own component so it can hold the paste hook: BlockRenderer branches on
+// block type, and hooks cannot run inside a branch.
+
+function ImageBlock({ prefix, canEdit, controls }: { prefix: string; canEdit: boolean; controls: React.ReactNode }) {
+  const { content, updateContent } = useContentContext();
+  const url = content[`${prefix}_content`] ?? "";
+  const caption = content[`${prefix}_caption`] ?? "";
+  const hasImage = url && url !== "https://example.com/image.png";
+  // Display width as a % of the content column; defaults to full width.
+  const width = content[`${prefix}_width`] ?? "100";
+  const { busy, upload } = useUpload({
+    bucket: LESSON_IMAGES_BUCKET,
+    onUploaded: (f) => updateContent(`${prefix}_content`, f.url),
+  });
+  // Paste a screenshot over the block, or after clicking it, instead of saving
+  // it to a file first. Pasting onto a block that has an image replaces it.
+  const pasteRef = usePasteImages<HTMLDivElement>(canEdit, (files) => upload(files[0]));
+
+  return (
+    <div
+      ref={pasteRef}
+      data-paste-zone={canEdit ? "" : undefined}
+      tabIndex={canEdit ? 0 : undefined}
+      className="group relative rounded-[var(--radius-card)]"
+    >
+      {controls}
+      {canEdit && (
+        <div className="flex items-center gap-2 mb-2">
+          <span className="font-mono text-[9px] uppercase tracking-widest opacity-40" style={{ color: "var(--text-muted)" }}>
+            URL:
+          </span>
+          <Editable
+            as="span"
+            contentKey={`${prefix}_content`}
+            fallback="https://example.com/image.png"
+            className="font-mono text-[10px] flex-1 truncate"
+            style={{ color: "var(--text-muted)" }}
+          />
+          <UploadBtn
+            bucket={LESSON_IMAGES_BUCKET}
+            accept="image/*"
+            onUploaded={(f) => updateContent(`${prefix}_content`, f.url)}
+          />
+        </div>
+      )}
+      {canEdit && hasImage && (
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className="font-mono text-[9px] uppercase tracking-widest opacity-40 mr-0.5" style={{ color: "var(--text-muted)" }}>
+            Size:
+          </span>
+          {IMAGE_WIDTHS.map((w) => (
+            <button
+              key={w}
+              onClick={() => updateContent(`${prefix}_width`, w)}
+              title={`Display at ${w}% width`}
+              className="font-mono text-[9px] px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+              style={width === w
+                ? { color: "var(--accent-medium)", border: "1px solid var(--accent-medium)" }
+                : { color: "var(--text-muted)", border: "1px solid var(--border-color)" }}
+            >
+              {w}%
+            </button>
+          ))}
+          <span className="ml-auto font-mono text-[9px] uppercase tracking-widest opacity-40 md:opacity-0 md:group-hover:opacity-40 transition-opacity" style={{ color: "var(--text-muted)" }}>
+            {busy ? "Uploading…" : "Paste to replace"}
+          </span>
+        </div>
+      )}
+      {hasImage ? (
+        <figure style={{ opacity: busy ? 0.5 : 1 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt={caption || ""}
+            className="block mx-auto rounded-[var(--radius-card)] object-cover"
+            style={{ width: `${width}%`, border: "1px solid var(--border-color)" }}
+          />
+          {(caption || canEdit) && (
+            <figcaption className="text-center mt-2 text-[12px]" style={{ color: "var(--text-muted)", opacity: 0.6 }}>
+              <Editable as="span" contentKey={`${prefix}_caption`} fallback="Image caption (optional)" />
+            </figcaption>
+          )}
+        </figure>
+      ) : (
+        <div
+          className="flex flex-col items-center justify-center gap-2 py-10 rounded-[var(--radius-card)]"
+          style={{ border: "1px dashed var(--border-strong)", color: "var(--text-muted)", opacity: busy ? 0.75 : 0.4 }}
+        >
+          <ImageIcon size={24} strokeWidth={1} />
+          {canEdit && (
+            <span className="text-[11px]">
+              {busy ? "Uploading…" : "Paste a screenshot here (Ctrl+V), or use Upload"}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -434,6 +554,12 @@ function DimStepper({
 
 function TableCell({ cellKey, canEdit, isHeader }: { cellKey: string; canEdit: boolean; isHeader: boolean }) {
   const { content, updateContent } = useContentContext();
+  const { busy, upload } = useUpload({
+    bucket: LESSON_IMAGES_BUCKET,
+    onUploaded: (f) => updateContent(`${cellKey}_img`, f.url),
+  });
+  // Paste a screenshot while in (or over) a cell to make it that cell's image.
+  const pasteRef = usePasteImages<HTMLTableCellElement>(canEdit, (files) => upload(files[0]));
   const img = content[`${cellKey}_img`] ?? "";
   const text = content[cellKey] ?? "";
   const Tag = isHeader ? "th" : "td";
@@ -444,6 +570,8 @@ function TableCell({ cellKey, canEdit, isHeader }: { cellKey: string; canEdit: b
 
   return (
     <Tag
+      ref={pasteRef}
+      data-paste-zone={canEdit ? "" : undefined}
       className="group/cell align-top text-left px-3 py-2"
       style={{
         border: "1px solid var(--border-color)",
@@ -483,7 +611,12 @@ function TableCell({ cellKey, canEdit, isHeader }: { cellKey: string; canEdit: b
           {renderInline(text)}
         </div>
       ) : null}
-      {canEdit && !img && (
+      {busy && (
+        <span className="block mt-1 font-mono text-[9px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+          Uploading…
+        </span>
+      )}
+      {canEdit && !img && !busy && (
         <span className="mt-1 inline-block opacity-100 md:opacity-0 md:group-hover/cell:opacity-100 transition-opacity">
           <UploadBtn
             bucket={LESSON_IMAGES_BUCKET}
@@ -572,7 +705,7 @@ function BlockRenderer({
   canMoveUp: boolean;
   canMoveDown: boolean;
 }) {
-  const { content, updateContent, updateMany } = useContentContext();
+  const { content, updateMany } = useContentContext();
   const prefix = `${lk}_s${si}_blk${block.j}`;
   const blockContent = content[`${prefix}_content`] ?? "";
   const lang = content[`${prefix}_lang`] ?? "";
@@ -647,77 +780,7 @@ function BlockRenderer({
   }
 
   if (block.type === "image") {
-    const url = blockContent;
-    const hasImage = url && url !== "https://example.com/image.png";
-    // Display width as a % of the content column; defaults to full width.
-    const width = content[`${prefix}_width`] ?? "100";
-    return (
-      <div className="group relative">
-        {controls}
-        {canEdit && (
-          <div className="flex items-center gap-2 mb-2">
-            <span className="font-mono text-[9px] uppercase tracking-widest opacity-40" style={{ color: "var(--text-muted)" }}>
-              URL:
-            </span>
-            <Editable
-              as="span"
-              contentKey={`${prefix}_content`}
-              fallback="https://example.com/image.png"
-              className="font-mono text-[10px] flex-1 truncate"
-              style={{ color: "var(--text-muted)" }}
-            />
-            <UploadBtn
-              bucket={LESSON_IMAGES_BUCKET}
-              accept="image/*"
-              onUploaded={(f) => updateContent(`${prefix}_content`, f.url)}
-            />
-          </div>
-        )}
-        {canEdit && hasImage && (
-          <div className="flex items-center gap-1.5 mb-2">
-            <span className="font-mono text-[9px] uppercase tracking-widest opacity-40 mr-0.5" style={{ color: "var(--text-muted)" }}>
-              Size:
-            </span>
-            {IMAGE_WIDTHS.map((w) => (
-              <button
-                key={w}
-                onClick={() => updateContent(`${prefix}_width`, w)}
-                title={`Display at ${w}% width`}
-                className="font-mono text-[9px] px-1.5 py-0.5 rounded cursor-pointer transition-colors"
-                style={width === w
-                  ? { color: "var(--accent-medium)", border: "1px solid var(--accent-medium)" }
-                  : { color: "var(--text-muted)", border: "1px solid var(--border-color)" }}
-              >
-                {w}%
-              </button>
-            ))}
-          </div>
-        )}
-        {hasImage ? (
-          <figure>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={url}
-              alt={caption || ""}
-              className="block mx-auto rounded-[var(--radius-card)] object-cover"
-              style={{ width: `${width}%`, border: "1px solid var(--border-color)" }}
-            />
-            {(caption || canEdit) && (
-              <figcaption className="text-center mt-2 text-[12px]" style={{ color: "var(--text-muted)", opacity: 0.6 }}>
-                <Editable as="span" contentKey={`${prefix}_caption`} fallback="Image caption (optional)" />
-              </figcaption>
-            )}
-          </figure>
-        ) : (
-          <div
-            className="flex items-center justify-center py-10 rounded-[var(--radius-card)]"
-            style={{ border: "1px dashed var(--border-strong)", color: "var(--text-muted)", opacity: 0.4 }}
-          >
-            <ImageIcon size={24} strokeWidth={1} />
-          </div>
-        )}
-      </div>
-    );
+    return <ImageBlock prefix={prefix} canEdit={canEdit} controls={controls} />;
   }
 
   if (block.type === "video") {

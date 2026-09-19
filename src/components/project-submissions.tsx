@@ -15,6 +15,7 @@ import {
   type MediaItem,
 } from "@/lib/uploads";
 import { videoEmbed } from "@/lib/video-embed";
+import { usePasteImages } from "@/hooks/use-paste-images";
 import {
   SUBMISSION_FIELDS, fieldMode, fieldModeKey, anyFieldOn,
   type FieldId, type FieldMode,
@@ -491,6 +492,40 @@ function SubmitBox({
     setOpen(true);
   };
 
+  // Defined above the early returns below, because the paste hook that uses it
+  // has to run on every render.
+  const addMedia = async (files: FileList | File[]) => {
+    const room = MAX_MEDIA_ITEMS - media.length;
+    if (room <= 0) {
+      setError(`You can add up to ${MAX_MEDIA_ITEMS} items.`);
+      return;
+    }
+    setError("");
+    setUploading(true);
+    const added: MediaItem[] = [];
+    try {
+      for (const f of Array.from(files).slice(0, room)) {
+        const kind = mediaKind(f);
+        const cap = maxBytesForKind(kind);
+        if (f.size > cap) {
+          setError(`${f.name} is ${formatBytes(f.size)}. The limit for a ${kind} is ${formatBytes(cap)}.`);
+          continue;
+        }
+        const up = await uploadToBucket(PROJECT_FILES_BUCKET, f, lessonKey);
+        added.push({ url: up.url, name: up.name, kind });
+      }
+      if (added.length) setMedia((prev) => [...prev, ...added]);
+    } catch (err) {
+      console.error("[submissions] media upload failed:", err);
+      setError("That upload did not go through. Try again, or post without it.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Paste screenshots anywhere in the open form to add them to the showcase.
+  const pasteRef = usePasteImages<HTMLDivElement>(open && modeOf("showcase") !== "off", (files) => addMedia(files));
+
   if (!signedIn) {
     return (
       <Prompt text="Sign in to share what you built.">
@@ -532,35 +567,6 @@ function SubmitBox({
       </button>
     );
   }
-
-  const addMedia = async (files: FileList) => {
-    const room = MAX_MEDIA_ITEMS - media.length;
-    if (room <= 0) {
-      setError(`You can add up to ${MAX_MEDIA_ITEMS} items.`);
-      return;
-    }
-    setError("");
-    setUploading(true);
-    const added: MediaItem[] = [];
-    try {
-      for (const f of Array.from(files).slice(0, room)) {
-        const kind = mediaKind(f);
-        const cap = maxBytesForKind(kind);
-        if (f.size > cap) {
-          setError(`${f.name} is ${formatBytes(f.size)}. The limit for a ${kind} is ${formatBytes(cap)}.`);
-          continue;
-        }
-        const up = await uploadToBucket(PROJECT_FILES_BUCKET, f, lessonKey);
-        added.push({ url: up.url, name: up.name, kind });
-      }
-      if (added.length) setMedia((prev) => [...prev, ...added]);
-    } catch (err) {
-      console.error("[submissions] media upload failed:", err);
-      setError("That upload did not go through. Try again, or post without it.");
-    } finally {
-      setUploading(false);
-    }
-  };
 
   // Stored as the original link; the embed URL is rebuilt from the video id at
   // render time, so nothing arbitrary can end up as an iframe src.
@@ -730,7 +736,7 @@ function SubmitBox({
             {uploading ? "Uploading…" : media.length ? "Add more" : "Add images or video"}
           </label>
           <span className="text-[11px] opacity-45" style={{ color: "var(--text-muted)" }}>
-            Up to {MAX_MEDIA_ITEMS} items, {formatBytes(MAX_MEDIA_IMAGE_BYTES)} an image, {formatBytes(MAX_MEDIA_VIDEO_BYTES)} a clip
+            Up to {MAX_MEDIA_ITEMS} items, {formatBytes(MAX_MEDIA_IMAGE_BYTES)} an image, {formatBytes(MAX_MEDIA_VIDEO_BYTES)} a clip. Or paste a screenshot (Ctrl+V).
           </span>
         </div>
 
@@ -811,6 +817,9 @@ function SubmitBox({
 
   return (
     <div
+      ref={pasteRef}
+      data-paste-zone=""
+      tabIndex={-1}
       className="px-5 pt-4 pb-5 flex flex-col gap-3.5"
       style={{ border: "1px solid var(--accent-medium)", borderRadius: "var(--radius-card)", background: "var(--surface)" }}
     >

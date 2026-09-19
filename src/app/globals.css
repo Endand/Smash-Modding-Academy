@@ -103,3 +103,10 @@ body {
   outline: 2px solid var(--accent-medium);
   outline-offset: 4px;
 }
+
+/* An element that takes a pasted screenshot shows it once focused, so it is
+   clear where Ctrl+V will land. */
+[data-paste-zone]:focus {
+  outline: 1px dashed var(--accent-medium);
+  outline-offset: 4px;
+}
