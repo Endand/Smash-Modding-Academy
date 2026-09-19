@@ -347,7 +347,7 @@ function AddLessonBtn({ courseId, section }: { courseId: string; section: LiveSe
       [`${section.sectionKey}_lesson_ids`, JSON.stringify([...currentIds, lId])],
       [`${lk}_title`, kind === "project" ? "New Project" : "New Lesson"],
       [`${lk}_status`, "draft"],
-      [`${lk}_icon`, kind === "project" ? "Wrench" : "BookOpen"],
+      [`${lk}_icon`, kind === "project" ? "Hammer" : "BookOpen"],
       [`${lk}_slug`, slug],
       [`${courseId}_slug_map`, JSON.stringify({ ...slugMap, [slug]: lk })],
     ];

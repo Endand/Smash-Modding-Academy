@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { ChevronRight, GraduationCap, BookOpen, Wrench, Lock } from "lucide-react";
+import { ChevronRight, GraduationCap, BookOpen, Hammer, Lock } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { useAuth } from "@/components/auth-provider";
@@ -211,7 +211,7 @@ function SectionBlock({ section, courseSlug }: { section: AccessSection; courseS
             style={{ color: "var(--text)" }}
           >
             {lesson.isProject
-              ? <Wrench size={12} strokeWidth={1.5} className="shrink-0" style={{ color: "var(--accent-medium)" }} />
+              ? <Hammer size={12} strokeWidth={1.5} className="shrink-0" style={{ color: "var(--accent-medium)" }} />
               : <BookOpen size={12} strokeWidth={1.5} className="shrink-0" style={{ color: "var(--text-muted)" }} />}
             <span className="flex-1 truncate capitalize">{lesson.title}</span>
             {lesson.status !== "published" && (
