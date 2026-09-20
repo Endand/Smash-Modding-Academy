@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Github, Paperclip, Download, Plus, Play, Settings2, Link2 as LinkIcon } from "lucide-react";
+import { Github, Paperclip, Download, Plus, Play, Settings2, Link2 as LinkIcon, ChevronDown, Image as ImageIcon } from "lucide-react";
 import { createClient, withTimeout } from "@/lib/supabase/client";
 import { useAuth } from "@/components/auth-provider";
 import { useContentContext } from "@/components/content-provider";
@@ -321,62 +321,96 @@ function SubmissionRow({
   const media = readMedia(row.media);
   const repo = normalizeUrl(row.repo_url ?? "");
 
+  // Collapsed by default, and the details are not rendered at all until
+  // opened. Hiding them with CSS would not be enough: a hidden iframe still
+  // loads, so a project with twenty solutions would start twenty players at
+  // once. Nothing is fetched here until someone asks for it.
+  const [open, setOpen] = useState(false);
+  const images = media.filter((m) => m.kind === "image").length;
+  const videos = media.length - images;
+
   return (
     <li
       className="group overflow-hidden"
       style={{ border: "1px solid var(--border-color)", borderRadius: "var(--radius-card)", background: "var(--surface)", opacity: removing ? 0.4 : 1 }}
     >
-      {/* Showcase leads: what people want first is to see the thing. */}
-      {media.length > 0 && <MediaGallery items={media} />}
-
-      <div className="flex items-start gap-4 px-4 py-3.5">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-2.5 flex-wrap">
-            <span className="text-[13.5px]" style={{ color: "var(--text)" }}>
-              {row.username || "Someone"}
-            </span>
-            <span className="font-mono text-[10px] opacity-40" style={{ color: "var(--text-muted)" }}>
-              {formatDate(row.created_at)}
-            </span>
-          </div>
-
-          {(repo || row.file_url) && (
-            <div className="flex items-center gap-4 flex-wrap mt-2">
-              {repo && (
-                <a
-                  href={repo}
-                  target="_blank"
-                  rel="noopener noreferrer nofollow ugc"
-                  className="flex items-center gap-1.5 text-[12px] hover:underline"
-                  style={{ color: "var(--accent-medium)" }}
-                >
-                  <Github size={13} strokeWidth={1.5} /> Repository
-                </a>
-              )}
-              {row.file_url && (
-                <a
-                  href={downloadUrl(row.file_url, row.file_name ?? undefined)}
-                  download={row.file_name ?? undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-[12px] hover:underline"
-                  style={{ color: "var(--accent-medium)" }}
-                >
-                  <Download size={13} strokeWidth={1.5} /> {row.file_name || "Download"}
-                </a>
-              )}
-            </div>
-          )}
-
-          {row.notes && (
-            <p className="text-[13px] leading-relaxed mt-2.5" style={{ color: "var(--text-muted)", whiteSpace: "pre-wrap" }}>
-              {row.notes}
-            </p>
-          )}
-        </div>
-
-        {canRemove && !removing && <RemoveBtn onClick={remove} title="Remove this submission" />}
+      <div className="flex items-center gap-3 px-4 py-3">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          title={open ? "Hide this solution" : "See this solution"}
+          className="flex-1 min-w-0 flex items-center gap-2.5 text-left cursor-pointer bg-transparent"
+        >
+          <ChevronDown
+            size={13}
+            strokeWidth={1.5}
+            className="shrink-0 transition-transform"
+            style={{ color: "var(--text-muted)", transform: open ? "none" : "rotate(-90deg)" }}
+          />
+          <span className="text-[13.5px] truncate" style={{ color: "var(--text)" }}>
+            {row.username || "Someone"}
+          </span>
+          <span className="font-mono text-[10px] opacity-40 shrink-0" style={{ color: "var(--text-muted)" }}>
+            {formatDate(row.created_at)}
+          </span>
+          {/* What is inside, so the row is worth scanning before opening it */}
+          <span className="ml-auto shrink-0 flex items-center gap-3 font-mono text-[10px] opacity-50" style={{ color: "var(--text-muted)" }}>
+            {images > 0 && <span className="flex items-center gap-1"><ImageIcon size={11} strokeWidth={1.5} />{images}</span>}
+            {videos > 0 && <span className="flex items-center gap-1"><Play size={11} strokeWidth={1.5} />{videos}</span>}
+            {repo && <Github size={11} strokeWidth={1.5} />}
+            {row.file_url && <Download size={11} strokeWidth={1.5} />}
+          </span>
+        </button>
+        {canRemove && !removing && <RemoveBtn onClick={remove} title="Remove this submission" vis="" />}
       </div>
+
+      {open && (
+        <div style={{ borderTop: "1px solid var(--border-color)" }}>
+          {media.length > 0 && <MediaGallery items={media} />}
+
+          <div className="px-4 py-3.5">
+            {(repo || row.file_url) && (
+              <div className="flex items-center gap-4 flex-wrap">
+                {repo && (
+                  <a
+                    href={repo}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow ugc"
+                    className="flex items-center gap-1.5 text-[12px] hover:underline"
+                    style={{ color: "var(--accent-medium)" }}
+                  >
+                    <Github size={13} strokeWidth={1.5} /> Repository
+                  </a>
+                )}
+                {row.file_url && (
+                  <a
+                    href={downloadUrl(row.file_url, row.file_name ?? undefined)}
+                    download={row.file_name ?? undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-[12px] hover:underline"
+                    style={{ color: "var(--accent-medium)" }}
+                  >
+                    <Download size={13} strokeWidth={1.5} /> {row.file_name || "Download"}
+                  </a>
+                )}
+              </div>
+            )}
+
+            {row.notes && (
+              <p className="text-[13px] leading-relaxed mt-2.5" style={{ color: "var(--text-muted)", whiteSpace: "pre-wrap" }}>
+                {row.notes}
+              </p>
+            )}
+
+            {!repo && !row.file_url && !row.notes && media.length === 0 && (
+              <p className="text-[13px] italic" style={{ color: "var(--text-muted)", opacity: 0.5 }}>
+                Nothing else was added to this solution.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </li>
   );
 }
