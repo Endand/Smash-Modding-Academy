@@ -513,7 +513,9 @@ function ImageBlock({ prefix, canEdit, controls }: { prefix: string; canEdit: bo
 // size keep their content, so shrinking a table and growing it back restores
 // them rather than losing them.
 
-const TABLE_MAX_ROWS = 20;
+// Reference tables (a param list, a hash list) run long, so the ceiling is
+// generous. It exists to stop a typo turning into a thousand-row table.
+const TABLE_MAX_ROWS = 100;
 const TABLE_MAX_COLS = 8;
 
 function clampDim(stored: string | undefined, fallback: number, max: number): number {
