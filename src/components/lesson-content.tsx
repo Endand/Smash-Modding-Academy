@@ -830,7 +830,7 @@ function BlockRenderer({
           >
             <Video size={24} strokeWidth={1} />
             {canEdit && blockContent && (
-              <span className="text-[11px]">Paste a YouTube or Vimeo link above</span>
+              <span className="text-[11px]">Paste a YouTube, Streamable, Medal or Vimeo link above</span>
             )}
           </div>
         )}

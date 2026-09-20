@@ -509,7 +509,7 @@ function SubmitBox({
         // faster than everything else combined, and a host that already streams
         // them does it better than we would.
         if (!isUploadableImage(f)) {
-          setError(`${f.name} is not an image. For video, add a YouTube or Vimeo link instead.`);
+          setError(`${f.name} is not an image. For video, add a video link instead.`);
           continue;
         }
         if (f.size > MAX_MEDIA_IMAGE_BYTES) {
@@ -583,7 +583,7 @@ function SubmitBox({
       return;
     }
     if (!videoEmbed(raw)) {
-      setError("That needs to be a YouTube or Vimeo link. For anything else, upload the clip instead.");
+      setError("That link is not one we can play. Use YouTube, Streamable, Medal or Vimeo.");
       return;
     }
     if (media.some((m) => m.url === raw)) {
@@ -745,14 +745,14 @@ function SubmitBox({
           </span>
         </div>
 
-        {/* A YouTube or Vimeo link instead of an upload, for anyone whose
+        {/* A video link instead of an upload, for anyone whose
             recording is longer than the file limit or already posted. */}
         <div className="flex items-center gap-2 flex-wrap">
           <input
             value={videoLink}
             onChange={(e) => setVideoLink(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addVideoLink(); } }}
-            placeholder="or paste a YouTube or Vimeo link"
+            placeholder="or paste a YouTube, Streamable, Medal or Vimeo link"
             className="flex-1 min-w-[14rem] px-3 py-1.5 text-[12px] outline-none focus:border-[var(--accent-medium)]"
             style={inputStyle}
           />
