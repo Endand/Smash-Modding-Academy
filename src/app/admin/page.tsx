@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth-provider";
 import { useContentContext } from "@/components/content-provider";
 import { usePermissions, rolePermKey } from "@/hooks/use-permissions";
 import { createClient, withRetry } from "@/lib/supabase/client";
+import { SITE_DOMAINS_KEY, parseSiteDomains } from "@/lib/site-domains";
 import { roleColor, ADMIN_COLOR } from "@/lib/role-color";
 
 // ── Permission definitions ────────────────────────────────────────────────────
@@ -412,6 +413,7 @@ export default function AdminPage() {
           </p>
 
           {/* Users — role assignment (full admins only) */}
+          {isAdmin && <SiteDomainsSection />}
           {isAdmin && <UsersSection roles={roles} />}
         </div>
       </main>
@@ -511,6 +513,65 @@ interface UserRow {
   username: string;
   is_admin: boolean;
   role: string | null;
+}
+
+// ── Site domains ──────────────────────────────────────────────────────────────
+// Lesson authors link between pages by pasting the address bar, which stores an
+// absolute URL. Any link whose host is listed here renders as a path on the
+// domain currently serving the page, so those links survive a move. When the
+// site gets a real domain, add it here and leave the old one in place.
+
+function SiteDomainsSection() {
+  const { content, updateContent } = useContentContext();
+  const stored = content[SITE_DOMAINS_KEY] ?? "";
+  const [draft, setDraft] = useState(stored);
+  const [saved, setSaved] = useState(false);
+  const active = parseSiteDomains(stored);
+
+  const save = () => {
+    updateContent(SITE_DOMAINS_KEY, draft.trim());
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div className="mt-14">
+      <h2 className="text-xl font-extralight tracking-wide text-[var(--text)] mb-2">Site domains</h2>
+      <p className="text-[12px] mb-4" style={{ color: "var(--text-muted)", opacity: 0.65 }}>
+        Every domain this site has been served from, one per line. A link in a lesson pointing at any
+        of these opens as an internal page instead of leaving the site, so copy written against an old
+        domain keeps working after a move. Add the new domain here before switching, and keep the old
+        one listed.
+      </p>
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        rows={3}
+        spellCheck={false}
+        placeholder={"smashmodding.academy\nsmash-academy.vercel.app"}
+        className="w-full px-3 py-2 text-[13px] font-mono outline-none resize-none focus:border-[var(--accent-medium)]"
+        style={{
+          background: "var(--bg)",
+          border: "1px solid var(--border-color)",
+          borderRadius: "var(--radius-button)",
+          color: "var(--text)",
+        }}
+      />
+      <div className="flex items-center gap-3 mt-2.5">
+        <button
+          onClick={save}
+          disabled={draft.trim() === stored.trim()}
+          className="px-4 py-1.5 font-mono text-[10px] uppercase tracking-widest cursor-pointer rounded-[var(--radius-button)] disabled:opacity-35"
+          style={{ background: "var(--accent)", color: "#fff", border: "1px solid var(--accent)" }}
+        >
+          {saved ? "Saved" : "Save"}
+        </button>
+        <span className="font-mono text-[10px]" style={{ color: "var(--text-muted)", opacity: 0.6 }}>
+          Treated as this site: {active.join(", ")}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 function UsersSection({ roles }: { roles: string[] }) {

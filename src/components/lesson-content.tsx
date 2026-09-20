@@ -16,6 +16,7 @@ import { getCourseKeys, getCourseSlug, slugFromTitle, PROJECT_ICONS } from "@/li
 import { replaceSlugMapEntry } from "@/lib/courses/slug-sync";
 import { renderInline } from "@/lib/inline-markdown";
 import { videoEmbed } from "@/lib/video-embed";
+import { toInternalPath } from "@/lib/site-domains";
 import { PreviewLinkBtn } from "@/components/preview-link-btn";
 import { hasPreviewGrant, lessonPreviewKey, withPreview } from "@/lib/preview-token";
 import { PendingChanges } from "@/components/pending-changes";
@@ -2072,7 +2073,14 @@ export function LessonContent({ lessonKey, slug, courseId = "foundations", lastU
                 <li key={i} className="group flex items-start gap-2.5 text-[13px]">
                   <span className="shrink-0 mt-0.5" style={{ color: "var(--accent-medium)" }}>→</span>
                   <div className="flex-1 min-w-0">
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--accent-medium)" }}>
+                    {/* A resource pointing at one of our own domains stays in
+                        the tab, and survives the site moving domain. */}
+                    <a
+                      href={toInternalPath(url) ?? url}
+                      {...(toInternalPath(url) ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+                      className="hover:underline"
+                      style={{ color: "var(--accent-medium)" }}
+                    >
                       <Editable as="span" contentKey={`${lk}_res${i}_title`} fallback={defTitle} />
                     </a>
                     <span style={{ color: "var(--text-muted)" }}> — </span>

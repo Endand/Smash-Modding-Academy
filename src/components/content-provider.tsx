@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { createClient, withTimeout, withRetry } from "@/lib/supabase/client";
+import { createClient, withRetry } from "@/lib/supabase/client";
+import { setSiteDomains, parseSiteDomains, SITE_DOMAINS_KEY } from "@/lib/site-domains";
 import { computeSlugSync } from "@/lib/courses/slug-sync";
 import { useAuth } from "@/components/auth-provider";
 import type { Revision } from "@/lib/revisions";
@@ -170,6 +171,13 @@ export function ContentProvider({ children, initialContent }: ContentProviderPro
     for (const k of keys) merged[k] = pending[k].value;
     return merged;
   }, [liveContent, pending]);
+
+  // Which hosts count as this site, for rewriting absolute links in lesson
+  // copy. Set during render rather than in an effect on purpose: the server
+  // render needs it too, or the markup would differ between server and client
+  // and React would complain. The value is the same for every reader, so the
+  // module-level write is safe.
+  setSiteDomains(parseSiteDomains(content[SITE_DOMAINS_KEY]));
 
   // One write for however many keys. Creating a course or a project touches
   // eight to thirteen keys at once; sending those as separate requests meant

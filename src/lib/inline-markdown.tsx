@@ -1,4 +1,5 @@
 import React from "react";
+import { toInternalPath } from "@/lib/site-domains";
 
 // Discord-style inline formatting stored as plain text and rendered to React
 // nodes. Supported:
@@ -33,8 +34,13 @@ const RULES: Rule[] = [
       // Site-relative paths are allowed so editable copy can link between
       // pages; they open in the same tab. Anything that isn't an ordinary
       // web link is dropped, which keeps javascript: and data: URLs out.
-      const internal = /^\/(?!\/)/.test(raw);
-      const href = internal || /^https?:\/\/|^mailto:/.test(raw) ? raw : "#";
+      //
+      // An absolute link to one of our own domains becomes a path, so copy
+      // written against an old domain keeps working after a move, and links
+      // between lessons stay in the same tab.
+      const ownPath = toInternalPath(raw);
+      const internal = ownPath !== null || /^\/(?!\/)/.test(raw);
+      const href = ownPath ?? (internal || /^https?:\/\/|^mailto:/.test(raw) ? raw : "#");
       return (
         <a key={key} href={href}
           {...(internal ? {} : { target: "_blank", rel: "noopener noreferrer" })}
