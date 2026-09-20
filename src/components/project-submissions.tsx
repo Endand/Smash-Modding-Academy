@@ -9,9 +9,9 @@ import { useContentContext } from "@/components/content-provider";
 import { Editable } from "@/components/editable-text";
 import { RemoveBtn } from "@/components/remove-btn";
 import {
-  uploadToBucket, formatBytes, downloadUrl, mediaKind, maxBytesForKind,
+  uploadToBucket, formatBytes, downloadUrl, isUploadableImage,
   PROJECT_FILES_BUCKET, MAX_PROJECT_FILE_BYTES, MAX_MEDIA_ITEMS,
-  MAX_MEDIA_IMAGE_BYTES, MAX_MEDIA_VIDEO_BYTES,
+  MAX_MEDIA_IMAGE_BYTES,
   type MediaItem,
 } from "@/lib/uploads";
 import { videoEmbed } from "@/lib/video-embed";
@@ -505,14 +505,19 @@ function SubmitBox({
     const added: MediaItem[] = [];
     try {
       for (const f of Array.from(files).slice(0, room)) {
-        const kind = mediaKind(f);
-        const cap = maxBytesForKind(kind);
-        if (f.size > cap) {
-          setError(`${f.name} is ${formatBytes(f.size)}. The limit for a ${kind} is ${formatBytes(cap)}.`);
+        // Images only. Video is linked rather than uploaded: clips ate storage
+        // faster than everything else combined, and a host that already streams
+        // them does it better than we would.
+        if (!isUploadableImage(f)) {
+          setError(`${f.name} is not an image. For video, add a YouTube or Vimeo link instead.`);
+          continue;
+        }
+        if (f.size > MAX_MEDIA_IMAGE_BYTES) {
+          setError(`${f.name} is ${formatBytes(f.size)}. The limit for an image is ${formatBytes(MAX_MEDIA_IMAGE_BYTES)}.`);
           continue;
         }
         const up = await uploadToBucket(PROJECT_FILES_BUCKET, f, lessonKey);
-        added.push({ url: up.url, name: up.name, kind });
+        added.push({ url: up.url, name: up.name, kind: "image" });
       }
       if (added.length) setMedia((prev) => [...prev, ...added]);
     } catch (err) {
@@ -728,15 +733,15 @@ function SubmitBox({
           >
             <input
               type="file"
-              accept="image/*,video/*"
+              accept="image/*"
               multiple
               className="hidden"
               onChange={(e) => { const fs = e.target.files; if (fs?.length) addMedia(fs); e.target.value = ""; }}
             />
-            {uploading ? "Uploading…" : media.length ? "Add more" : "Add images or video"}
+            {uploading ? "Uploading…" : media.length ? "Add more" : "Add images"}
           </label>
           <span className="text-[11px] opacity-45" style={{ color: "var(--text-muted)" }}>
-            Up to {MAX_MEDIA_ITEMS} items, {formatBytes(MAX_MEDIA_IMAGE_BYTES)} an image, {formatBytes(MAX_MEDIA_VIDEO_BYTES)} a clip. Or paste a screenshot (Ctrl+V).
+            Up to {MAX_MEDIA_ITEMS} items, {formatBytes(MAX_MEDIA_IMAGE_BYTES)} an image. Paste a screenshot with Ctrl+V, or add a video link below.
           </span>
         </div>
 

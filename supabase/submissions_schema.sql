@@ -25,11 +25,12 @@ INSERT INTO storage.buckets (id, name, public, file_size_limit)
 VALUES ('lesson-files', 'lesson-files', true, 52428800)   --  50 MB
 ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = 52428800;
 
--- 50 MB covers the largest thing anyone posts here, a showcase clip. The app
--- applies tighter per-kind caps on top: 10 MB an image, 25 MB a project file.
+-- 25 MB covers the largest thing anyone posts here, the built mod. Video is
+-- linked rather than uploaded, so no clip ever lands in this bucket. The app
+-- applies a tighter cap on top: 10 MB for a showcase image.
 INSERT INTO storage.buckets (id, name, public, file_size_limit)
-VALUES ('project-files', 'project-files', true, 52428800) --  50 MB
-ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = 52428800;
+VALUES ('project-files', 'project-files', true, 26214400) --  25 MB
+ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = 26214400;
 
 -- Anyone, signed in or not, may download from either bucket.
 DROP POLICY IF EXISTS "lesson_files_public_read" ON storage.objects;

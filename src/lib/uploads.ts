@@ -17,12 +17,13 @@ export const PROJECT_FILES_BUCKET = "project-files";
 export const MAX_LESSON_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
 export const MAX_PROJECT_FILE_BYTES = 25 * 1024 * 1024; // 25 MB, the built mod
 export const MAX_MEDIA_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB per screenshot
-export const MAX_MEDIA_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB per clip
 // Showcase media is meant to be a handful of shots, not an album.
 export const MAX_MEDIA_ITEMS = 6;
 
-// "video" is a file in our own storage; "embed" is a YouTube/Vimeo link the
-// person pasted, which stays on its own host and costs us nothing to serve.
+// "embed" is a YouTube/Vimeo link, which stays on its own host and costs us
+// nothing to store. "video" is a clip in our own storage: no longer accepted,
+// because video ate storage far faster than anything else, but kept so clips
+// posted before that still play.
 export type MediaKind = "image" | "video" | "embed";
 
 export interface MediaItem {
@@ -31,18 +32,8 @@ export interface MediaItem {
   kind: MediaKind;
 }
 
-const VIDEO_EXT = /\.(mp4|webm|mov|m4v|ogv)$/i;
-
-// A file's MIME type is the reliable signal at upload time; the extension is
-// the fallback for media already stored, where only the URL survives.
-export function mediaKind(file: { type?: string; name: string }): MediaKind {
-  if (file.type?.startsWith("video/")) return "video";
-  if (file.type?.startsWith("image/")) return "image";
-  return VIDEO_EXT.test(file.name) ? "video" : "image";
-}
-
-export function maxBytesForKind(kind: MediaKind): number {
-  return kind === "video" ? MAX_MEDIA_VIDEO_BYTES : MAX_MEDIA_IMAGE_BYTES;
+export function isUploadableImage(file: { type?: string }): boolean {
+  return !!file.type?.startsWith("image/");
 }
 
 export interface UploadedFile {
