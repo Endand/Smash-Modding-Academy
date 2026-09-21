@@ -513,6 +513,9 @@ interface UserRow {
   username: string;
   is_admin: boolean;
   role: string | null;
+  /** Optional: the column arrives with submission_bans_schema.sql, and a
+   *  missing value reads as not banned. */
+  submissions_banned?: boolean;
 }
 
 // ── Site domains ──────────────────────────────────────────────────────────────
@@ -590,7 +593,10 @@ function UsersSection({ roles }: { roles: string[] }) {
       const { data, error } = await withRetry(() =>
         supabase
           .from("profiles")
-          .select("id, username, is_admin, role")
+          // "*" rather than a column list: asking for submissions_banned by
+          // name would fail outright on a database where that migration has
+          // not been run yet, taking the whole user list with it.
+          .select("*")
           .or("is_admin.eq.true,role.not.is.null")
           .order("username")
       );
@@ -618,7 +624,10 @@ function UsersSection({ roles }: { roles: string[] }) {
         const supabase = createClient();
         const { data } = await supabase
           .from("profiles")
-          .select("id, username, is_admin, role")
+          // "*" rather than a column list: asking for submissions_banned by
+          // name would fail outright on a database where that migration has
+          // not been run yet, taking the whole user list with it.
+          .select("*")
           .ilike("username", `%${q.replace(/[%_]/g, "")}%`)
           .order("username")
           .limit(20);
@@ -641,6 +650,29 @@ function UsersSection({ roles }: { roles: string[] }) {
       console.error("[admin] role assignment failed:", err);
       const e = err as { message?: string; code?: string };
       setError(`Couldn't assign that role: ${[e?.code && `[${e.code}]`, e?.message].filter(Boolean).join(" ") || String(err)}`);
+    }
+  };
+
+  // Stops an account posting project submissions, for spam. The database
+  // enforces it too, so this is a switch rather than the rule itself.
+  const toggleBan = async (userId: string, banned: boolean) => {
+    // Optimistic: the row flips immediately and is put back if the call fails.
+    const apply = (b: boolean) => {
+      setResults((rs) => rs.map((r) => (r.id === userId ? { ...r, submissions_banned: b } : r)));
+      setStaff((s) => s?.map((r) => (r.id === userId ? { ...r, submissions_banned: b } : r)) ?? s);
+    };
+    apply(banned);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("set_submission_ban", { target_id: userId, banned });
+      if (error) throw error;
+    } catch (err) {
+      console.error("[admin] submission ban failed:", err);
+      apply(!banned);
+      const e = err as { message?: string; code?: string };
+      setError(
+        `Couldn't ${banned ? "ban" : "unban"} that account: ${[e?.code && `[${e.code}]`, e?.message].filter(Boolean).join(" ") || String(err)}`
+      );
     }
   };
 
@@ -694,7 +726,7 @@ function UsersSection({ roles }: { roles: string[] }) {
             /* Search results — every user is findable here, role or not */
             <div style={{ border: "1px solid var(--border-color)", borderRadius: "var(--radius-card)", overflow: "hidden" }}>
               {results.map((u, i) => (
-                <UserRowItem key={u.id} user={u} roles={roles} onAssign={assignRole} isLast={i === results.length - 1} />
+                <UserRowItem key={u.id} user={u} roles={roles} onAssign={assignRole} onToggleBan={toggleBan} isLast={i === results.length - 1} />
               ))}
               {results.length === 0 && (
                 <p className="px-5 py-8 text-center text-[13px] italic" style={{ color: "var(--text-muted)", opacity: 0.45 }}>
@@ -710,6 +742,7 @@ function UsersSection({ roles }: { roles: string[] }) {
                 users={admins}
                 roles={roles}
                 onAssign={assignRole}
+                onToggleBan={toggleBan}
                 emptyNote="No admins."
               />
               {roles.map((role) => (
@@ -719,6 +752,7 @@ function UsersSection({ roles }: { roles: string[] }) {
                   users={usersInRole(role)}
                   roles={roles}
                   onAssign={assignRole}
+                  onToggleBan={toggleBan}
                   emptyNote="No users with this role yet. Search above to assign it."
                 />
               ))}
@@ -736,12 +770,13 @@ function UsersSection({ roles }: { roles: string[] }) {
 }
 
 function RoleGroup({
-  label, users, roles, onAssign, emptyNote,
+  label, users, roles, onAssign, onToggleBan, emptyNote,
 }: {
   label: string;
   users: UserRow[];
   roles: string[];
   onAssign: (userId: string, role: string) => void;
+  onToggleBan: (userId: string, banned: boolean) => void;
   emptyNote: string;
 }) {
   const color = label === "Admins" ? ADMIN_COLOR : roleColor(label);
@@ -757,7 +792,7 @@ function RoleGroup({
       {users.length > 0 ? (
         <div style={{ border: "1px solid var(--border-color)", borderRadius: "var(--radius-card)", overflow: "hidden" }}>
           {users.map((u, i) => (
-            <UserRowItem key={u.id} user={u} roles={roles} onAssign={onAssign} isLast={i === users.length - 1} />
+            <UserRowItem key={u.id} user={u} roles={roles} onAssign={onAssign} onToggleBan={onToggleBan} isLast={i === users.length - 1} />
           ))}
         </div>
       ) : (
@@ -768,13 +803,15 @@ function RoleGroup({
 }
 
 function UserRowItem({
-  user, roles, onAssign, isLast,
+  user, roles, onAssign, onToggleBan, isLast,
 }: {
   user: UserRow;
   roles: string[];
   onAssign: (userId: string, role: string) => void;
+  onToggleBan: (userId: string, banned: boolean) => void;
   isLast: boolean;
 }) {
+  const banned = !!user.submissions_banned;
   return (
     <div
       className="flex items-center justify-between gap-4 px-5 py-3"
@@ -784,6 +821,20 @@ function UserRowItem({
       {/* Admin is a flag, not a role, so an admin can hold a role alongside it:
           the badge and the role picker both show. */}
       <span className="flex items-center gap-2">
+        {/* Posting solutions is separate from any role, so it gets its own
+            switch rather than being folded into the role picker. */}
+        <button
+          onClick={() => onToggleBan(user.id, !banned)}
+          title={banned
+            ? `Let @${user.username} post project solutions again`
+            : `Stop @${user.username} posting project solutions`}
+          className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-[var(--radius-tag)] cursor-pointer transition-colors"
+          style={banned
+            ? { color: "#fff", background: ADMIN_COLOR, border: `1px solid ${ADMIN_COLOR}` }
+            : { color: "var(--text-muted)", border: "1px solid var(--border-color)", opacity: 0.7 }}
+        >
+          {banned ? "Banned" : "Ban"}
+        </button>
         {user.is_admin && (
           <span
             className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-[var(--radius-tag)]"

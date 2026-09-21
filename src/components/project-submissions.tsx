@@ -204,6 +204,7 @@ export function ProjectSubmissions({
                   existing={mine}
                   signedIn={!!user}
                   hasUsername={!!profile?.username}
+                  banned={!!profile?.submissions_banned}
                   onSaved={load}
                 />
               ) : canManage ? (
@@ -492,6 +493,7 @@ function SubmitBox({
   existing,
   signedIn,
   hasUsername,
+  banned,
   onSaved,
 }: {
   lessonKey: string;
@@ -499,6 +501,8 @@ function SubmitBox({
   existing: Submission | null;
   signedIn: boolean;
   hasUsername: boolean;
+  /** Banned by an admin from posting. The database refuses the write too. */
+  banned: boolean;
   onSaved: () => void;
 }) {
   const { content } = useContentContext();
@@ -574,6 +578,22 @@ function SubmitBox({
           style={{ background: "var(--accent)", color: "#fff", border: "1px solid var(--accent)" }}
         >
           Sign in
+        </Link>
+      </Prompt>
+    );
+  }
+
+  // Said plainly rather than hiding the section: silently removing the button
+  // reads as a bug, and someone banned by mistake needs to know to ask.
+  if (banned) {
+    return (
+      <Prompt text="Your account cannot post solutions. If you think that is a mistake, get in touch.">
+        <Link
+          href="/contact"
+          className="shrink-0 px-4 py-1.5 font-mono text-[10px] uppercase tracking-widest rounded-[var(--radius-button)]"
+          style={{ color: "var(--text-muted)", border: "1px solid var(--border-strong)" }}
+        >
+          Contact us
         </Link>
       </Prompt>
     );

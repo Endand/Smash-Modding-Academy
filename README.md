@@ -93,6 +93,7 @@ order. Each file is additive and safe to re-run.
 | `revisions_schema.sql` | The edit approval queue |
 | `staff_schema.sql` | The public staff directory the team page reads |
 | `submissions_schema.sql` | Project submissions and their storage buckets |
+| `submission_bans_schema.sql` | The admin ban on posting submissions |
 
 Sign in once to create your profile, then set yourself as an admin:
 

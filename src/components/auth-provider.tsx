@@ -10,6 +10,9 @@ export type Profile = {
   created_at: string;
   is_admin: boolean;
   role: string | null;
+  /** Banned by an admin from posting project submissions. Optional because
+   *  the column is added by a later migration; missing reads as not banned. */
+  submissions_banned?: boolean;
 };
 
 type AuthContextType = {
