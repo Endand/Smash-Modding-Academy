@@ -582,6 +582,11 @@ function UsersSection({ roles }: { roles: string[] }) {
   // plain select is capped at 1000 rows, so loading *all* users would drop
   // role-holders once the site passes 1000 registered users.
   const [staff, setStaff] = useState<UserRow[] | null>(null);
+  // Banned accounts are loaded separately: a banned person is often neither an
+  // admin nor a role-holder, so the staff query would never see them. Null
+  // means the query failed, which on a database without the ban migration is
+  // expected, and the group is left out rather than showing a false empty.
+  const [banned, setBanned] = useState<UserRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserRow[]>([]);
@@ -598,10 +603,26 @@ function UsersSection({ roles }: { roles: string[] }) {
           // not been run yet, taking the whole user list with it.
           .select("*")
           .or("is_admin.eq.true,role.not.is.null")
-          .order("username")
+          .order("username"),
+        // A read, so a timed-out attempt is safe to repeat rather than being
+        // reported as a failure the user has to clear by hand.
+        { attempts: 3, ms: 8000, retryTimeouts: true }
       );
       if (error) throw error;
       setStaff((data ?? []) as UserRow[]);
+
+      // Separate and tolerant: the column does not exist until the ban
+      // migration runs, and that must not take the staff list down with it.
+      try {
+        const { data: bannedRows, error: bannedError } = await withRetry(() =>
+          supabase.from("profiles").select("*").eq("submissions_banned", true).order("username"),
+          { attempts: 2, ms: 8000, retryTimeouts: true }
+        );
+        if (bannedError) throw bannedError;
+        setBanned((bannedRows ?? []) as UserRow[]);
+      } catch {
+        setBanned(null);
+      }
     } catch (err) {
       // Show the real reason. The old message blamed a missing migration for
       // every failure, including an expired session or a dropped connection.
@@ -666,6 +687,8 @@ function UsersSection({ roles }: { roles: string[] }) {
       const supabase = createClient();
       const { error } = await supabase.rpc("set_submission_ban", { target_id: userId, banned });
       if (error) throw error;
+      // Refresh so the Banned group gains or loses them.
+      loadStaff();
     } catch (err) {
       console.error("[admin] submission ban failed:", err);
       apply(!banned);
@@ -761,6 +784,19 @@ function UsersSection({ roles }: { roles: string[] }) {
                   No roles defined yet. Add one in the table above.
                 </p>
               )}
+              {/* Closed by default: worth being able to check, not worth
+                  sitting open next to the staff every time. */}
+              {banned && (
+                <RoleGroup
+                  label="Banned"
+                  users={banned}
+                  roles={roles}
+                  onAssign={assignRole}
+                  onToggleBan={toggleBan}
+                  emptyNote="Nobody is banned from posting solutions."
+                  collapsible
+                />
+              )}
             </div>
           )}
         </>
@@ -770,7 +806,7 @@ function UsersSection({ roles }: { roles: string[] }) {
 }
 
 function RoleGroup({
-  label, users, roles, onAssign, onToggleBan, emptyNote,
+  label, users, roles, onAssign, onToggleBan, emptyNote, collapsible,
 }: {
   label: string;
   users: UserRow[];
@@ -778,18 +814,38 @@ function RoleGroup({
   onAssign: (userId: string, role: string) => void;
   onToggleBan: (userId: string, banned: boolean) => void;
   emptyNote: string;
+  /** Starts closed, for a list you want to check occasionally rather than
+   *  have in front of you next to the staff. */
+  collapsible?: boolean;
 }) {
-  const color = label === "Admins" ? ADMIN_COLOR : roleColor(label);
+  const color = label === "Admins" || label === "Banned" ? ADMIN_COLOR : roleColor(label);
+  const [open, setOpen] = useState(!collapsible);
+
+  const heading = (
+    <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+      {collapsible && (
+        <ChevronDown
+          size={11}
+          className="shrink-0 transition-transform"
+          style={{ transform: open ? "none" : "rotate(-90deg)" }}
+        />
+      )}
+      <span className="shrink-0 rounded-full" style={{ width: 8, height: 8, background: color }} />
+      {label} <span style={{ opacity: 0.5 }}>({users.length})</span>
+    </span>
+  );
+
   return (
     <div>
       <div className="flex items-center gap-4 mb-3">
-        <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
-          <span className="shrink-0 rounded-full" style={{ width: 8, height: 8, background: color }} />
-          {label} <span style={{ opacity: 0.5 }}>({users.length})</span>
-        </span>
+        {collapsible ? (
+          <button onClick={() => setOpen((v) => !v)} className="cursor-pointer bg-transparent" aria-expanded={open}>
+            {heading}
+          </button>
+        ) : heading}
         <div className="h-px flex-1 bg-[var(--border-color)]" />
       </div>
-      {users.length > 0 ? (
+      {!open ? null : users.length > 0 ? (
         <div style={{ border: "1px solid var(--border-color)", borderRadius: "var(--radius-card)", overflow: "hidden" }}>
           {users.map((u, i) => (
             <UserRowItem key={u.id} user={u} roles={roles} onAssign={onAssign} onToggleBan={onToggleBan} isLast={i === users.length - 1} />

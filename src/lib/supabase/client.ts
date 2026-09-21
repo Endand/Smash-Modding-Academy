@@ -50,6 +50,10 @@ export function withTimeout<T>(promise: PromiseLike<T>, ms = 10000): Promise<T> 
 
 // An abort from the auth lock happens before the request is sent, so the
 // request never reached the server and is safe to send again.
+function isTimeout(err: unknown): boolean {
+  return (err as { message?: string })?.message === "Request timed out";
+}
+
 function isLockAbort(err: unknown): boolean {
   if (!err) return false;
   const e = err as { name?: string; message?: string };
@@ -66,7 +70,16 @@ function isLockAbort(err: unknown): boolean {
  */
 export async function withRetry<T>(
   make: () => PromiseLike<T>,
-  { attempts = 3, ms = 10000 }: { attempts?: number; ms?: number } = {}
+  {
+    attempts = 3,
+    ms = 10000,
+    // Off by default: a write that timed out may still have reached the
+    // server, so repeating it could apply twice. Turn it on for reads, where
+    // repeating costs nothing. The first request after a page load is the slow
+    // one, because the auth client is still settling, and without this a single
+    // slow start shows the user an error that a manual retry then clears.
+    retryTimeouts = false,
+  }: { attempts?: number; ms?: number; retryTimeouts?: boolean } = {}
 ): Promise<T> {
   let last: unknown;
   for (let i = 0; i < attempts; i++) {
@@ -82,7 +95,8 @@ export async function withRetry<T>(
       return result;
     } catch (err) {
       last = err;
-      if (!isLockAbort(err) || final) throw err;
+      const retryable = isLockAbort(err) || (retryTimeouts && isTimeout(err));
+      if (!retryable || final) throw err;
     }
   }
   throw last;
