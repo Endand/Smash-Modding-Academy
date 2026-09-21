@@ -794,7 +794,6 @@ function UsersSection({ roles }: { roles: string[] }) {
                   onAssign={assignRole}
                   onToggleBan={toggleBan}
                   emptyNote="Nobody is banned from posting solutions."
-                  collapsible
                 />
               )}
             </div>
@@ -805,8 +804,10 @@ function UsersSection({ roles }: { roles: string[] }) {
   );
 }
 
+// Every group starts closed. The counts in the headers are what you scan; the
+// rows underneath are what you open when you need to act on someone.
 function RoleGroup({
-  label, users, roles, onAssign, onToggleBan, emptyNote, collapsible,
+  label, users, roles, onAssign, onToggleBan, emptyNote,
 }: {
   label: string;
   users: UserRow[];
@@ -814,35 +815,29 @@ function RoleGroup({
   onAssign: (userId: string, role: string) => void;
   onToggleBan: (userId: string, banned: boolean) => void;
   emptyNote: string;
-  /** Starts closed, for a list you want to check occasionally rather than
-   *  have in front of you next to the staff. */
-  collapsible?: boolean;
 }) {
   const color = label === "Admins" || label === "Banned" ? ADMIN_COLOR : roleColor(label);
-  const [open, setOpen] = useState(!collapsible);
-
-  const heading = (
-    <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
-      {collapsible && (
-        <ChevronDown
-          size={11}
-          className="shrink-0 transition-transform"
-          style={{ transform: open ? "none" : "rotate(-90deg)" }}
-        />
-      )}
-      <span className="shrink-0 rounded-full" style={{ width: 8, height: 8, background: color }} />
-      {label} <span style={{ opacity: 0.5 }}>({users.length})</span>
-    </span>
-  );
+  const [open, setOpen] = useState(false);
 
   return (
     <div>
       <div className="flex items-center gap-4 mb-3">
-        {collapsible ? (
-          <button onClick={() => setOpen((v) => !v)} className="cursor-pointer bg-transparent" aria-expanded={open}>
-            {heading}
-          </button>
-        ) : heading}
+        <button
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          title={open ? `Hide ${label}` : `Show ${label}`}
+          className="cursor-pointer bg-transparent"
+        >
+          <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+            <ChevronDown
+              size={11}
+              className="shrink-0 transition-transform"
+              style={{ transform: open ? "none" : "rotate(-90deg)" }}
+            />
+            <span className="shrink-0 rounded-full" style={{ width: 8, height: 8, background: color }} />
+            {label} <span style={{ opacity: 0.5 }}>({users.length})</span>
+          </span>
+        </button>
         <div className="h-px flex-1 bg-[var(--border-color)]" />
       </div>
       {!open ? null : users.length > 0 ? (
